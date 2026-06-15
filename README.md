@@ -1,4 +1,4 @@
-# HTML Viewer
+# Artiview
 
 에이전트가 생성한 HTML 결과물·발표자료와 Markdown 문서를 모아 보고 관리하는
 데스크톱 앱입니다. 크롬으로는 번거로운

@@ -24,7 +24,7 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar">
-      <div className="brand">HTML Viewer</div>
+      <div className="brand">Artiview</div>
 
       <nav className="nav-group">
         <button className={`nav-item ${active("all") ? "active" : ""}`} onClick={() => setNav({ kind: "all" })}>

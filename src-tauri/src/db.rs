@@ -218,11 +218,12 @@ pub fn folder_file_stats(
 }
 
 /// Generic listing with an optional view filter, tag, folder and search query.
+/// `folder_path` filters to files anywhere beneath that directory (recursive).
 pub fn list_files(
     conn: &Connection,
     view: &str,
     tag: Option<&str>,
-    folder_id: Option<i64>,
+    folder_path: Option<&str>,
     query: Option<&str>,
 ) -> rusqlite::Result<Vec<FileEntry>> {
     let mut sql = String::from("SELECT DISTINCT f.id FROM files f");
@@ -237,9 +238,10 @@ pub fn list_files(
         binds.push(Box::new(tag.to_string()));
     }
 
-    if let Some(fid) = folder_id {
-        wheres.push("f.folder_id = ?".into());
-        binds.push(Box::new(fid));
+    if let Some(dir) = folder_path {
+        let trimmed = dir.trim_end_matches('/');
+        wheres.push("f.path LIKE ? ESCAPE '\\'".into());
+        binds.push(Box::new(format!("{}/%", like_escape(trimmed))));
     }
 
     match view {
@@ -429,7 +431,36 @@ pub fn set_file_tags(conn: &Connection, file_id: i64, tags: &[String]) -> rusqli
     Ok(())
 }
 
+// ---- directories (for the sidebar folder tree) -----------------------------
+
+/// Direct file count per containing directory, as (root_folder_id, dir, count).
+/// Only files that belong to a registered folder are included. The frontend
+/// expands these into a tree (filling intermediate dirs and recursive counts).
+pub fn dir_counts(conn: &Connection) -> rusqlite::Result<Vec<(i64, String, i64)>> {
+    let rows: Vec<(i64, String)> = {
+        let mut stmt =
+            conn.prepare("SELECT folder_id, path FROM files WHERE missing = 0 AND folder_id IS NOT NULL")?;
+        let r = stmt
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        r
+    };
+    let mut map: HashMap<(i64, String), i64> = HashMap::new();
+    for (root_id, path) in rows {
+        if let Some(idx) = path.rfind('/') {
+            let dir = path[..idx].to_string();
+            *map.entry((root_id, dir)).or_insert(0) += 1;
+        }
+    }
+    Ok(map.into_iter().map(|((id, dir), c)| (id, dir, c)).collect())
+}
+
 // ---- helpers ---------------------------------------------------------------
+
+/// Escape LIKE wildcards so a filesystem path is matched literally as a prefix.
+fn like_escape(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")
+}
 
 /// Turn a free-text query into a forgiving FTS5 prefix expression, e.g.
 /// `neural net` -> `"neural"* "net"*`. Returns None if nothing usable remains.

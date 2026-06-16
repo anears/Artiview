@@ -108,6 +108,25 @@ button {
   flex-shrink: 0;
 }
 
+.tree-caret {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 9px;
+  width: 13px;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tree-caret:hover {
+  color: var(--text);
+}
+
+.nav-item.folder {
+  gap: 5px;
+}
+
 .nav-label {
   flex: 1;
   overflow: hidden;

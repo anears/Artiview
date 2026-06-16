@@ -1,7 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openPath as openWithSystem } from "@tauri-apps/plugin-opener";
-import type { FileEntry, Folder, ScanResult, TagCount } from "./types";
+import type { DirCount, FileEntry, Folder, ScanResult, TagCount } from "./types";
 
 export const listFolders = () => invoke<Folder[]>("list_folders");
 export const addFolder = (path: string) => invoke<ScanResult>("add_folder", { path });
@@ -11,11 +11,14 @@ export const rescan = () => invoke<ScanResult>("rescan");
 export interface ListArgs {
   view: string;
   tag?: string | null;
-  folder_id?: number | null;
+  // Single-word key on purpose: Tauri expects camelCase arg keys, so a
+  // snake_case key like `folder_path` would silently not bind.
+  dir?: string | null;
   query?: string | null;
   [key: string]: unknown;
 }
 export const listFiles = (args: ListArgs) => invoke<FileEntry[]>("list_files", args);
+export const listDirs = () => invoke<DirCount[]>("list_dirs");
 
 export const getFile = (id: number) => invoke<FileEntry | null>("get_file", { id });
 export const openPath = (path: string) => invoke<FileEntry>("open_path", { path });

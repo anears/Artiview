@@ -6,7 +6,7 @@ import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
 import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
-import type { FileEntry, Folder, Nav, TagCount } from "./types";
+import type { DirCount, FileEntry, Folder, Nav, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
 import "./styles.css";
@@ -19,6 +19,7 @@ function App() {
 
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [dirs, setDirs] = useState<DirCount[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
 
   const [openFile, setOpenFile] = useState<FileEntry | null>(null);
@@ -30,8 +31,13 @@ function App() {
 
   const refreshSidebar = useCallback(async () => {
     try {
-      const [fs, ts] = await Promise.all([api.listFolders(), api.listTags()]);
+      const [fs, ds, ts] = await Promise.all([
+        api.listFolders(),
+        api.listDirs(),
+        api.listTags(),
+      ]);
       setFolders(fs);
+      setDirs(ds);
       setTags(ts);
     } catch (e) {
       fail(e);
@@ -47,7 +53,7 @@ function App() {
         case "favorites":
           return { view: "favorites", ...base };
         case "folder":
-          return { view: "all", folder_id: n.folderId, ...base };
+          return { view: "all", dir: n.folderPath, ...base };
         case "tag":
           return { view: "all", tag: n.tag, ...base };
         default:
@@ -131,7 +137,14 @@ function App() {
     if (!confirm(`'${basename(f.path)}' 폴더를 목록에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`)) return;
     try {
       await api.removeFolder(f.id);
-      if (nav.kind === "folder" && nav.folderId === f.id) setNav({ kind: "all" });
+      const root = f.path.replace(/\/+$/, "");
+      if (
+        nav.kind === "folder" &&
+        nav.folderPath &&
+        (nav.folderPath === root || nav.folderPath.startsWith(root + "/"))
+      ) {
+        setNav({ kind: "all" });
+      }
       await refreshSidebar();
       await refreshFiles();
     } catch (e) {
@@ -183,7 +196,7 @@ function App() {
       case "favorites":
         return "즐겨찾기";
       case "folder":
-        return basename(folders.find((f) => f.id === nav.folderId)?.path ?? "폴더");
+        return nav.folderPath ? basename(nav.folderPath) : "폴더";
       case "tag":
         return `# ${nav.tag}`;
       default:
@@ -200,6 +213,7 @@ function App() {
         nav={nav}
         setNav={setNav}
         folders={folders}
+        dirs={dirs}
         tags={tags}
         onAddFolder={addFolder}
         onRemoveFolder={removeFolder}

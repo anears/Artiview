@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local content / registered viewer folders that happen to live inside the repo.
+# These are user artifacts, not source — never commit them.
+artifact/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

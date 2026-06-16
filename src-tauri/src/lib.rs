@@ -188,12 +188,31 @@ fn list_files(
     state: State<AppState>,
     view: String,
     tag: Option<String>,
-    folder_id: Option<i64>,
+    dir: Option<String>,
     query: Option<String>,
 ) -> CmdResult<Vec<FileEntry>> {
     let conn = state.db.lock().unwrap();
     let q = query.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    db::list_files(&conn, &view, tag.as_deref(), folder_id, q).map_err(|e| e.to_string())
+    let folder = dir.as_deref().filter(|s| !s.is_empty());
+    db::list_files(&conn, &view, tag.as_deref(), folder, q).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Serialize)]
+struct DirCount {
+    root_id: i64,
+    dir: String,
+    count: i64,
+}
+
+/// Directory file counts for building the sidebar folder tree.
+#[tauri::command]
+fn list_dirs(state: State<AppState>) -> CmdResult<Vec<DirCount>> {
+    let conn = state.db.lock().unwrap();
+    let rows = db::dir_counts(&conn).map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|(root_id, dir, count)| DirCount { root_id, dir, count })
+        .collect())
 }
 
 #[tauri::command]
@@ -270,6 +289,7 @@ pub fn run() {
             remove_folder,
             rescan,
             list_files,
+            list_dirs,
             get_file,
             open_path,
             record_open,

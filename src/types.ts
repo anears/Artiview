@@ -29,6 +29,22 @@ export interface TagCount {
   count: number;
 }
 
+/** Direct file count for a directory (from the backend), used to build the tree. */
+export interface DirCount {
+  root_id: number;
+  dir: string;
+  count: number;
+}
+
+/** A node in the sidebar folder tree. */
+export interface FolderNode {
+  name: string;
+  path: string;
+  rootId: number;
+  count: number; // recursive file count
+  children: FolderNode[];
+}
+
 export interface ScanResult {
   scanned: number;
   added: number;
@@ -40,7 +56,7 @@ export type NavKind = "all" | "recent" | "favorites" | "folder" | "tag";
 
 export interface Nav {
   kind: NavKind;
-  folderId?: number;
+  folderPath?: string;
   tag?: string;
 }
 

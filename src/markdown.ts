@@ -4,6 +4,7 @@ import MarkdownIt from "markdown-it";
 import hljs from "highlight.js/lib/common";
 import { useEffect, useState } from "react";
 import { fileSrc } from "./api";
+import { injectFindScript, wrapHtmlForViewer } from "./find";
 import { parentDir } from "./util";
 // CSS is injected into the iframe document (it has its own DOM), so we pull the
 // stylesheets in as strings via Vite's `?inline` import.
@@ -106,21 +107,40 @@ export type DocSource = { src?: string; srcDoc?: string; loading: boolean };
 
 /**
  * Resolve what to feed an <iframe> for a file:
- *  - HTML → the asset URL directly (browser renders it natively)
  *  - Markdown → fetched + rendered HTML as srcDoc (only when `enabled`)
+ *  - HTML, thumbnails (`findable` off) → the asset URL directly (native render)
+ *  - HTML, viewer (`findable` on) → fetched + wrapped as srcDoc so the parent
+ *    can inject the find script (the asset URL is a different origin, which
+ *    would otherwise block DOM access for in-document search). A `<base>` set to
+ *    the file's own asset URL keeps relative resources resolving as before.
  */
-export function useDocSource(path: string, kind: "html" | "md", enabled: boolean): DocSource {
+export function useDocSource(
+  path: string,
+  kind: "html" | "md",
+  enabled: boolean,
+  findable = false,
+): DocSource {
   const [srcDoc, setSrcDoc] = useState<string | undefined>();
-  const [loading, setLoading] = useState(kind === "md");
+  // HTML thumbnails render straight from the asset URL; everything else needs a
+  // fetch + transform pass before it can be shown.
+  const fetched = kind === "md" || findable;
+  const [loading, setLoading] = useState(fetched);
 
   useEffect(() => {
-    if (kind !== "md" || !enabled) return;
+    if (!fetched || !enabled) return;
     let cancelled = false;
     setLoading(true);
+    setSrcDoc(undefined);
     fetch(fileSrc(path))
       .then((r) => r.text())
       .then((text) => {
-        if (!cancelled) setSrcDoc(renderMarkdownDoc(text, parentDir(path)));
+        if (cancelled) return;
+        let doc =
+          kind === "md"
+            ? renderMarkdownDoc(text, parentDir(path))
+            : wrapHtmlForViewer(text, fileSrc(path));
+        if (kind === "md" && findable) doc = injectFindScript(doc);
+        setSrcDoc(doc);
       })
       .catch(() => {
         if (!cancelled) setSrcDoc("<p style='color:#f88;font-family:sans-serif;padding:24px'>불러오기 실패</p>");
@@ -129,8 +149,8 @@ export function useDocSource(path: string, kind: "html" | "md", enabled: boolean
     return () => {
       cancelled = true;
     };
-  }, [path, kind, enabled]);
+  }, [path, kind, enabled, fetched]);
 
-  if (kind === "html") return { src: fileSrc(path), loading: false };
+  if (kind === "html" && !findable) return { src: fileSrc(path), loading: false };
   return { srcDoc, loading };
 }

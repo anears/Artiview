@@ -109,10 +109,13 @@ export type DocSource = { src?: string; srcDoc?: string; loading: boolean };
  * Resolve what to feed an <iframe> for a file:
  *  - Markdown → fetched + rendered HTML as srcDoc (only when `enabled`)
  *  - HTML, thumbnails (`findable` off) → the asset URL directly (native render)
- *  - HTML, viewer (`findable` on) → fetched + wrapped as srcDoc so the parent
- *    can inject the find script (the asset URL is a different origin, which
- *    would otherwise block DOM access for in-document search). A `<base>` set to
- *    the file's own asset URL keeps relative resources resolving as before.
+ *  - HTML, viewer (`findable` on) → fetched + wrapped as srcDoc so we can inject
+ *    the find script into the markup (impossible when the file is loaded
+ *    directly via its asset URL). The viewer iframe is sandboxed WITHOUT
+ *    `allow-same-origin`, so even though srcDoc shares the app's origin the
+ *    untrusted document cannot reach the parent or the Tauri IPC; the find
+ *    script communicates with the parent only over postMessage. A `<base>` set
+ *    to the file's own asset URL keeps relative resources resolving as before.
  */
 export function useDocSource(
   path: string,

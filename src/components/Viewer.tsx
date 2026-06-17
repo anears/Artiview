@@ -182,11 +182,20 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags }: 
         </div>
       )}
 
+      {/*
+        The viewer renders agent-generated (untrusted) HTML. The sandbox keeps
+        scripts running (so dynamic reports work) but deliberately OMITS
+        `allow-same-origin`: srcDoc is same-origin with the app shell, and
+        combining same-origin with `allow-scripts` would let a malicious
+        document remove its own sandbox and reach `window.parent` / the Tauri
+        IPC. The find feature needs no same-origin access — it drives the
+        injected script purely over postMessage. Do not add `allow-same-origin`.
+      */}
       <iframe
         ref={frameRef}
         className="viewer-frame"
         srcDoc={doc.srcDoc}
-        sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-downloads"
+        sandbox="allow-scripts allow-popups allow-forms allow-modals allow-downloads"
         title={file.name}
       />
     </div>

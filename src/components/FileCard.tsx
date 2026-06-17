@@ -49,11 +49,17 @@ export default function FileCard({ file, onOpen, onToggleFavorite }: Props) {
   return (
     <div className="card" onClick={() => onOpen(file)} title={file.path}>
       <div className="thumb" ref={thumbRef}>
+        {/*
+          Thumbnails render untrusted HTML/Markdown (a .md can smuggle raw
+          <script> through markdown-it). The sandbox OMITS `allow-same-origin`
+          so the preview runs in an isolated origin with no access to the parent
+          app or the Tauri IPC. Do not add `allow-same-origin`.
+        */}
         {ready && (doc.src || doc.srcDoc) ? (
           <iframe
             className="thumb-frame"
             {...frameProps}
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
             scrolling="no"
             tabIndex={-1}
             title={file.name}

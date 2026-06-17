@@ -718,6 +718,82 @@ button {
   width: 100%;
 }
 
+/* ---------- In-document find bar ---------- */
+.find-bar {
+  position: absolute;
+  top: 64px;
+  right: 18px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 8px 0 12px;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+.find-bar:focus-within {
+  border-color: var(--accent);
+}
+
+.find-ico {
+  color: var(--text-faint);
+  font-size: 15px;
+}
+
+.find-input {
+  width: 200px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13.5px;
+  outline: none;
+}
+
+.find-count {
+  min-width: 44px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.find-count.none {
+  color: var(--danger);
+}
+
+.find-nav,
+.find-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.find-nav:hover:not(:disabled),
+.find-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.find-nav:disabled {
+  opacity: 0.35;
+}
+
+.find-close {
+  font-size: 17px;
+  margin-left: 2px;
+}
+
 /* ---------- Modal ---------- */
 .modal-backdrop {
   position: fixed;

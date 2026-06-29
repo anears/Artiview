@@ -8,14 +8,20 @@ interface Props {
   layout: "grid" | "list";
   onOpen: (f: FileEntry) => void;
   onToggleFavorite: (f: FileEntry) => void;
+  onForget: (f: FileEntry) => void;
 }
 
-export default function FileGrid({ files, layout, onOpen, onToggleFavorite }: Props) {
+export default function FileGrid({ files, layout, onOpen, onToggleFavorite, onForget }: Props) {
   if (layout === "list") {
     return (
       <div className="list">
         {files.map((f) => (
-          <div className="row" key={f.id} onClick={() => onOpen(f)} title={f.path}>
+          <div
+            className={`row ${f.missing ? "missing" : ""}`}
+            key={f.id}
+            onClick={() => onOpen(f)}
+            title={f.path}
+          >
             <button
               className={`star ${f.favorite ? "on" : ""}`}
               onClick={(e) => {
@@ -26,7 +32,10 @@ export default function FileGrid({ files, layout, onOpen, onToggleFavorite }: Pr
               {f.favorite ? "★" : "☆"}
             </button>
             <div className="row-main">
-              <div className="row-name">{displayName(f)}</div>
+              <div className="row-name">
+                {f.missing && <span className="missing-badge">없음</span>}
+                {displayName(f)}
+              </div>
               <div className="row-dir">{parentDir(f.path)}</div>
             </div>
             <div className="row-tags">
@@ -38,6 +47,16 @@ export default function FileGrid({ files, layout, onOpen, onToggleFavorite }: Pr
             </div>
             <div className="row-size">{formatSize(f.size)}</div>
             <div className="row-time">{formatTime(f.modified)}</div>
+            <button
+              className="row-remove"
+              title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onForget(f);
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
@@ -47,7 +66,13 @@ export default function FileGrid({ files, layout, onOpen, onToggleFavorite }: Pr
   return (
     <div className="grid">
       {files.map((f) => (
-        <FileCard key={f.id} file={f} onOpen={onOpen} onToggleFavorite={onToggleFavorite} />
+        <FileCard
+          key={f.id}
+          file={f}
+          onOpen={onOpen}
+          onToggleFavorite={onToggleFavorite}
+          onForget={onForget}
+        />
       ))}
     </div>
   );

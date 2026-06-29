@@ -14,9 +14,10 @@ interface Props {
   file: FileEntry;
   onOpen: (f: FileEntry) => void;
   onToggleFavorite: (f: FileEntry) => void;
+  onForget: (f: FileEntry) => void;
 }
 
-export default function FileCard({ file, onOpen, onToggleFavorite }: Props) {
+export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: Props) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
   const [inView, setInView] = useState(false);
@@ -45,9 +46,11 @@ export default function FileCard({ file, onOpen, onToggleFavorite }: Props) {
   const ready = inView && scale > 0;
   const doc = useDocSource(file.path, kind, ready);
   const frameProps = doc.src ? { src: doc.src } : { srcDoc: doc.srcDoc };
+  // Rescan flagged it missing, or the (Markdown) preview fetch just failed.
+  const broken = file.missing || doc.error;
 
   return (
-    <div className="card" onClick={() => onOpen(file)} title={file.path}>
+    <div className={`card ${broken ? "missing" : ""}`} onClick={() => onOpen(file)} title={file.path}>
       <div className="thumb" ref={thumbRef}>
         {/*
           Thumbnails render untrusted HTML/Markdown (a .md can smuggle raw
@@ -55,7 +58,22 @@ export default function FileCard({ file, onOpen, onToggleFavorite }: Props) {
           so the preview runs in an isolated origin with no access to the parent
           app or the Tauri IPC. Do not add `allow-same-origin`.
         */}
-        {ready && (doc.src || doc.srcDoc) ? (
+        {broken ? (
+          <div className="thumb-missing">
+            <div className="tm-ico">⚠</div>
+            <div className="tm-text">파일을 찾을 수 없음</div>
+            <button
+              className="tm-remove"
+              title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
+              onClick={(e) => {
+                e.stopPropagation();
+                onForget(file);
+              }}
+            >
+              라이브러리에서 제거
+            </button>
+          </div>
+        ) : ready && (doc.src || doc.srcDoc) ? (
           <iframe
             className="thumb-frame"
             {...frameProps}

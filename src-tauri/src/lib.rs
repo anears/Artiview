@@ -180,6 +180,16 @@ fn rescan(state: State<AppState>) -> CmdResult<ScanResult> {
         total.updated += r.updated;
         total.removed += r.removed;
     }
+
+    // Re-validate individually-opened files (no parent folder to scan): mark
+    // them missing when their path no longer resolves, and clear the flag if
+    // they reappear. Their entry is kept so the user can see + forget them.
+    for (id, path, was_missing) in db::standalone_files(&conn).map_err(|e| e.to_string())? {
+        let now_missing = !Path::new(&path).is_file();
+        if now_missing != was_missing {
+            db::set_missing(&conn, id, now_missing).map_err(|e| e.to_string())?;
+        }
+    }
     Ok(total)
 }
 
@@ -232,7 +242,12 @@ fn open_path(state: State<AppState>, path: String) -> CmdResult<FileEntry> {
     let conn = state.db.lock().unwrap();
     let now = now_secs();
     let id = match db::get_file_by_path(&conn, &path).map_err(|e| e.to_string())? {
-        Some(id) => id,
+        // Re-opened via the picker → the file demonstrably exists, so clear any
+        // stale missing flag left over from a previous rescan.
+        Some(id) => {
+            db::set_missing(&conn, id, false).map_err(|e| e.to_string())?;
+            id
+        }
         None => index_single(&conn, p, None, now).map_err(|e| e.to_string())?.0,
     };
     db::record_open(&conn, id, now).map_err(|e| e.to_string())?;
@@ -263,6 +278,15 @@ fn list_tags(state: State<AppState>) -> CmdResult<Vec<TagCount>> {
 fn set_file_tags(state: State<AppState>, id: i64, tags: Vec<String>) -> CmdResult<()> {
     let conn = state.db.lock().unwrap();
     db::set_file_tags(&conn, id, &tags).map_err(|e| e.to_string())
+}
+
+/// Forget a single file: remove its entry (and FTS row + tags) from the library
+/// index. The original file on disk is never touched — this is for cleaning up
+/// the library, e.g. an individually-opened file whose path has since changed.
+#[tauri::command]
+fn forget_file(state: State<AppState>, id: i64) -> CmdResult<()> {
+    let conn = state.db.lock().unwrap();
+    db::delete_file(&conn, id).map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -296,6 +320,7 @@ pub fn run() {
             set_favorite,
             list_tags,
             set_file_tags,
+            forget_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

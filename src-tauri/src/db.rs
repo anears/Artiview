@@ -227,7 +227,9 @@ pub fn list_files(
     query: Option<&str>,
 ) -> rusqlite::Result<Vec<FileEntry>> {
     let mut sql = String::from("SELECT DISTINCT f.id FROM files f");
-    let mut wheres: Vec<String> = vec!["f.missing = 0".into()];
+    // Missing files are intentionally NOT filtered out here: we surface them
+    // (badged as broken in the UI) so the user can re-locate or forget them.
+    let mut wheres: Vec<String> = Vec::new();
     let mut binds: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
 
     if let Some(tag) = tag {
@@ -383,6 +385,28 @@ pub fn set_favorite(conn: &Connection, id: i64, fav: bool) -> rusqlite::Result<(
         params![id, fav as i64],
     )?;
     Ok(())
+}
+
+/// Flag (or clear) a file whose path no longer resolves on disk.
+pub fn set_missing(conn: &Connection, id: i64, missing: bool) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE files SET missing = ?2 WHERE id = ?1",
+        params![id, missing as i64],
+    )?;
+    Ok(())
+}
+
+/// Individually-opened files (those not under any registered folder), as
+/// (id, path, missing). Folder rescans never touch these, so `rescan` walks
+/// this list separately to keep their `missing` flag in sync with disk.
+pub fn standalone_files(conn: &Connection) -> rusqlite::Result<Vec<(i64, String, bool)>> {
+    let mut stmt = conn.prepare("SELECT id, path, missing FROM files WHERE folder_id IS NULL")?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? != 0))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }
 
 // ---- tags ------------------------------------------------------------------

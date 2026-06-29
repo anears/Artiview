@@ -29,6 +29,9 @@ export const listTags = () => invoke<TagCount[]>("list_tags");
 export const setFileTags = (id: number, tags: string[]) =>
   invoke<void>("set_file_tags", { id, tags });
 
+/** Remove a file's entry from the library index (does not delete the file). */
+export const forgetFile = (id: number) => invoke<void>("forget_file", { id });
+
 /** URL the webview can use to load a local file inside an <iframe>. */
 export const fileSrc = (path: string) => convertFileSrc(path);
 

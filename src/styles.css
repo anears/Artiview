@@ -355,6 +355,21 @@ button {
   color: var(--star);
 }
 
+.btn.ghost.danger {
+  color: var(--text-dim);
+}
+
+.btn.ghost.danger:hover {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--danger);
+}
+
+.btn.primary.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
 .spin {
   display: inline-block;
   animation: spin 0.9s linear infinite;
@@ -872,6 +887,154 @@ button {
   z-index: 80;
   box-shadow: var(--shadow);
   cursor: pointer;
+}
+
+/* ---------- Missing / broken files ---------- */
+.card.missing {
+  opacity: 0.75;
+}
+
+.card.missing:hover {
+  opacity: 1;
+  border-color: var(--danger);
+}
+
+.thumb-missing {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  text-align: center;
+  background: repeating-linear-gradient(
+    -45deg,
+    #2a2030,
+    #2a2030 10px,
+    #2d2230 10px,
+    #2d2230 20px
+  );
+  color: var(--text-dim);
+}
+
+.tm-ico {
+  font-size: 26px;
+  color: var(--danger);
+}
+
+.tm-text {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.tm-remove {
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+}
+
+.tm-remove:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+.missing-badge {
+  display: inline-block;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.row.missing .row-name {
+  color: var(--text-dim);
+}
+
+.row-remove {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.row:hover .row-remove {
+  opacity: 1;
+}
+
+.row-remove:hover {
+  background: rgba(255, 107, 107, 0.14);
+  color: var(--danger);
+}
+
+.viewer-missing {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+
+.vm-card {
+  max-width: 520px;
+  text-align: center;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px 36px;
+}
+
+.vm-ico {
+  font-size: 40px;
+  color: var(--danger);
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.vm-card h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.vm-card p {
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+
+.vm-path {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 22px;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.vm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
 /* Scrollbars */

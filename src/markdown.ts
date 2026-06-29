@@ -103,7 +103,7 @@ export function renderMarkdownDoc(source: string, dir: string): string {
 <body><article class="markdown-body">${body}</article></body></html>`;
 }
 
-export type DocSource = { src?: string; srcDoc?: string; loading: boolean };
+export type DocSource = { src?: string; srcDoc?: string; loading: boolean; error: boolean };
 
 /**
  * Resolve what to feed an <iframe> for a file:
@@ -124,6 +124,7 @@ export function useDocSource(
   findable = false,
 ): DocSource {
   const [srcDoc, setSrcDoc] = useState<string | undefined>();
+  const [error, setError] = useState(false);
   // HTML thumbnails render straight from the asset URL; everything else needs a
   // fetch + transform pass before it can be shown.
   const fetched = kind === "md" || findable;
@@ -134,8 +135,13 @@ export function useDocSource(
     let cancelled = false;
     setLoading(true);
     setSrcDoc(undefined);
+    setError(false);
     fetch(fileSrc(path))
-      .then((r) => r.text())
+      .then((r) => {
+        // A moved/deleted file resolves to a 404 from the asset protocol.
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
       .then((text) => {
         if (cancelled) return;
         let doc =
@@ -146,7 +152,7 @@ export function useDocSource(
         setSrcDoc(doc);
       })
       .catch(() => {
-        if (!cancelled) setSrcDoc("<p style='color:#f88;font-family:sans-serif;padding:24px'>불러오기 실패</p>");
+        if (!cancelled) setError(true);
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -154,6 +160,6 @@ export function useDocSource(
     };
   }, [path, kind, enabled, fetched]);
 
-  if (kind === "html" && !findable) return { src: fileSrc(path), loading: false };
-  return { srcDoc, loading };
+  if (kind === "html" && !findable) return { src: fileSrc(path), loading: false, error: false };
+  return { srcDoc, loading, error };
 }

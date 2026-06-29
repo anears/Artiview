@@ -107,6 +107,25 @@ function App() {
     }
   };
 
+  const forgetFile = async (f: FileEntry) => {
+    if (
+      !confirm(
+        `'${displayName(f)}'을(를) 라이브러리에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`,
+      )
+    )
+      return;
+    // Optimistic: drop it from the list and close the viewer if it was open.
+    setFiles((prev) => prev.filter((x) => x.id !== f.id));
+    setOpenFile((prev) => (prev && prev.id === f.id ? null : prev));
+    try {
+      await api.forgetFile(f.id);
+      await refreshSidebar();
+    } catch (e) {
+      fail(e);
+      await refreshFiles(); // resync if the delete didn't take
+    }
+  };
+
   const saveTags = async (f: FileEntry, tagList: string[]) => {
     patchFile(f.id, { tags: tagList });
     try {
@@ -261,6 +280,7 @@ function App() {
               layout={layout}
               onOpen={handleOpen}
               onToggleFavorite={toggleFavorite}
+              onForget={forgetFile}
             />
           )}
         </div>
@@ -272,6 +292,7 @@ function App() {
           onClose={() => setOpenFile(null)}
           onToggleFavorite={toggleFavorite}
           onEditTags={(f) => setTagEditFile(f)}
+          onForget={forgetFile}
         />
       )}
 

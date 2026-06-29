@@ -10,11 +10,15 @@ interface Props {
   onClose: () => void;
   onToggleFavorite: (f: FileEntry) => void;
   onEditTags: (f: FileEntry) => void;
+  onForget: (f: FileEntry) => void;
 }
 
-export default function Viewer({ file, onClose, onToggleFavorite, onEditTags }: Props) {
+export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, onForget }: Props) {
   const kind = fileKind(file);
   const doc = useDocSource(file.path, kind, true, true); // findable: inject search support
+  // The file can't be read — either rescan already flagged it, or the live
+  // fetch just failed (moved/renamed/deleted since it was indexed).
+  const broken = file.missing || doc.error;
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -119,7 +123,12 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags }: 
               {t}
             </span>
           ))}
-          <button className="btn ghost" onClick={openFind} title="문서 내 검색 (⌘/Ctrl+F)">
+          <button
+            className="btn ghost"
+            onClick={openFind}
+            disabled={broken}
+            title="문서 내 검색 (⌘/Ctrl+F)"
+          >
             ⌕ 찾기
           </button>
           <button className="btn ghost" onClick={() => onEditTags(file)} title="태그 편집">
@@ -132,13 +141,20 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags }: 
           >
             {file.favorite ? "★" : "☆"}
           </button>
+          <button
+            className="btn ghost danger"
+            onClick={() => onForget(file)}
+            title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
+          >
+            🗑 제거
+          </button>
           <button className="btn" onClick={() => openInBrowser(file.path)} title="브라우저로 열기">
             브라우저로 ↗
           </button>
         </div>
       </header>
 
-      {findOpen && (
+      {findOpen && !broken && (
         <div className="find-bar" role="search">
           <span className="find-ico">⌕</span>
           <input
@@ -182,22 +198,44 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags }: 
         </div>
       )}
 
-      {/*
-        The viewer renders agent-generated (untrusted) HTML. The sandbox keeps
-        scripts running (so dynamic reports work) but deliberately OMITS
-        `allow-same-origin`: srcDoc is same-origin with the app shell, and
-        combining same-origin with `allow-scripts` would let a malicious
-        document remove its own sandbox and reach `window.parent` / the Tauri
-        IPC. The find feature needs no same-origin access — it drives the
-        injected script purely over postMessage. Do not add `allow-same-origin`.
-      */}
-      <iframe
-        ref={frameRef}
-        className="viewer-frame"
-        srcDoc={doc.srcDoc}
-        sandbox="allow-scripts allow-popups allow-forms allow-modals allow-downloads"
-        title={file.name}
-      />
+      {broken ? (
+        <div className="viewer-missing">
+          <div className="vm-card">
+            <div className="vm-ico">⚠</div>
+            <h2>파일을 찾을 수 없습니다</h2>
+            <p>
+              이 위치에서 파일을 불러오지 못했어요. 이동·이름변경·삭제되었을 수 있습니다.
+              원본을 다시 찾았다면 <strong>파일 열기</strong>로 다시 등록하세요.
+            </p>
+            <code className="vm-path">{file.path}</code>
+            <div className="vm-actions">
+              <button className="btn" onClick={() => openInBrowser(file.path)}>
+                브라우저로 열기 시도
+              </button>
+              <button className="btn primary danger" onClick={() => onForget(file)}>
+                라이브러리에서 제거
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /*
+          The viewer renders agent-generated (untrusted) HTML. The sandbox keeps
+          scripts running (so dynamic reports work) but deliberately OMITS
+          `allow-same-origin`: srcDoc is same-origin with the app shell, and
+          combining same-origin with `allow-scripts` would let a malicious
+          document remove its own sandbox and reach `window.parent` / the Tauri
+          IPC. The find feature needs no same-origin access — it drives the
+          injected script purely over postMessage. Do not add `allow-same-origin`.
+        */
+        <iframe
+          ref={frameRef}
+          className="viewer-frame"
+          srcDoc={doc.srcDoc}
+          sandbox="allow-scripts allow-popups allow-forms allow-modals allow-downloads"
+          title={file.name}
+        />
+      )}
     </div>
   );
 }

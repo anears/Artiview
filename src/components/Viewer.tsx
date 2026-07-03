@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { openInBrowser } from "../api";
+import { isRemotePath, openInBrowser } from "../api";
 import { useDebounced } from "../hooks";
 import { useDocSource } from "../markdown";
 import type { FileEntry } from "../types";
@@ -8,29 +8,41 @@ import ForgetButton, { canForget } from "./ForgetButton";
 
 interface Props {
   file: FileEntry;
+  authEpoch: number;
   onClose: () => void;
   onToggleFavorite: (f: FileEntry) => void;
   onEditTags: (f: FileEntry) => void;
   onForget: (f: FileEntry) => void;
+  onAuthNeeded: (hostkey: string) => void;
   onError: (e: unknown) => void;
 }
 
 export default function Viewer({
   file,
+  authEpoch,
   onClose,
   onToggleFavorite,
   onEditTags,
   onForget,
+  onAuthNeeded,
   onError,
 }: Props) {
   const kind = fileKind(file);
+  const remote = isRemotePath(file.path);
   // findable: inject search support. The refresh key retries the fetch when a
-  // rescan / re-open updates the entry, so a restored file recovers in place.
-  const doc = useDocSource(file.path, kind, true, true, `${file.modified}-${file.missing}`);
+  // rescan / re-open / login updates the entry, so it recovers in place.
+  const doc = useDocSource(
+    file.path,
+    kind,
+    true,
+    true,
+    `${file.modified}-${file.missing}-${authEpoch}`,
+  );
   // The live fetch is the ground truth: a stale DB `missing` flag only counts
-  // while the fetch hasn't disproved it.
-  const notFound = doc.notFound || (file.missing && !doc.ok && !doc.loading);
-  const broken = notFound || doc.loadError;
+  // while the fetch hasn't disproved it (and a locked host proves nothing).
+  const needsAuth = doc.needsAuth;
+  const notFound = doc.notFound || (file.missing && !doc.ok && !doc.loading && !needsAuth);
+  const broken = notFound || doc.loadError || needsAuth !== null;
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -170,9 +182,11 @@ export default function Viewer({
               🗑 제거
             </ForgetButton>
           )}
-          <button className="btn" onClick={tryOpenInBrowser} title="브라우저로 열기">
-            브라우저로 ↗
-          </button>
+          {!remote && (
+            <button className="btn" onClick={tryOpenInBrowser} title="브라우저로 열기">
+              브라우저로 ↗
+            </button>
+          )}
         </div>
       </header>
 
@@ -223,9 +237,20 @@ export default function Viewer({
       {broken ? (
         <div className="viewer-missing">
           <div className="vm-card">
-            <div className="vm-ico">⚠</div>
-            <h2>{notFound ? "파일을 찾을 수 없습니다" : "파일을 불러오지 못했습니다"}</h2>
-            {notFound ? (
+            <div className="vm-ico">{needsAuth ? "🔒" : "⚠"}</div>
+            <h2>
+              {needsAuth
+                ? "인증이 필요합니다"
+                : notFound
+                  ? "파일을 찾을 수 없습니다"
+                  : "파일을 불러오지 못했습니다"}
+            </h2>
+            {needsAuth ? (
+              <p>
+                <strong>{needsAuth}</strong> 서버에 접속하려면 비밀번호가 필요합니다. 비밀번호는 앱
+                실행 중에만 기억되며 저장되지 않습니다.
+              </p>
+            ) : notFound ? (
               <p>
                 이 위치에서 파일을 불러오지 못했어요. 이동·이름변경·삭제되었을 수 있습니다.
                 원본을 다시 찾았다면 <strong>파일 열기</strong>로 다시 등록하세요.
@@ -237,12 +262,20 @@ export default function Viewer({
             )}
             <code className="vm-path">{file.path}</code>
             <div className="vm-actions">
-              <button className="btn" onClick={doc.retry}>
-                다시 시도
-              </button>
-              <button className="btn" onClick={tryOpenInBrowser}>
-                브라우저로 열기 시도
-              </button>
+              {needsAuth ? (
+                <button className="btn primary" onClick={() => onAuthNeeded(needsAuth)}>
+                  비밀번호 입력
+                </button>
+              ) : (
+                <button className="btn" onClick={doc.retry}>
+                  다시 시도
+                </button>
+              )}
+              {!remote && !needsAuth && (
+                <button className="btn" onClick={tryOpenInBrowser}>
+                  브라우저로 열기 시도
+                </button>
+              )}
               {notFound && (
                 <ForgetButton file={file} className="btn primary danger" onForget={onForget}>
                   라이브러리에서 제거

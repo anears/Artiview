@@ -134,6 +134,13 @@ button {
   white-space: nowrap;
 }
 
+/* Host suffix on remote folder roots, e.g. "reports @user@build01". */
+.nav-host {
+  margin-left: 5px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 .nav-count {
   font-size: 11px;
   color: var(--text-faint);
@@ -183,6 +190,11 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-faint);
+}
+
+.head-btns {
+  display: flex;
+  gap: 2px;
 }
 
 .mini-btn {
@@ -848,6 +860,107 @@ button {
   white-space: nowrap;
 }
 
+/* ---------- Modal forms (remote folder / password) ---------- */
+.form-field {
+  margin-bottom: 12px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+
+.form-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.form-hint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
+
+.radio-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.radio-opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.modal-error {
+  font-size: 12.5px;
+  color: var(--danger);
+  margin-top: 4px;
+}
+
+/* Remote-path tab completion dropdown */
+.suggest-wrap {
+  position: relative;
+}
+
+.suggest-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  z-index: 10;
+}
+
+.suggest-item {
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggest-item:hover,
+.suggest-item.active {
+  background: var(--accent-dim);
+  color: #fff;
+}
+
 /* ---------- Tag editor ---------- */
 .tag-editor {
   display: flex;
@@ -941,6 +1054,21 @@ button {
 .tm-remove:hover {
   background: var(--danger);
   color: #fff;
+}
+
+/* Locked remote host: neutral (non-destructive) variant of thumb-missing. */
+.thumb-auth {
+  background: repeating-linear-gradient(
+    -45deg,
+    #202636,
+    #202636 10px,
+    #232940 10px,
+    #232940 20px
+  );
+}
+
+.thumb-auth .tm-ico {
+  color: var(--accent);
 }
 
 .missing-badge {

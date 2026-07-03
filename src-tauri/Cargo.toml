@@ -25,4 +25,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 walkdir = "2"
+# Remote (SSH/SFTP) folder support. vendored-openssl keeps builds hermetic.
+ssh2 = { version = "0.9", features = ["vendored-openssl"] }
+ssh2-config = "0.5"
+percent-encoding = "2.3"
 

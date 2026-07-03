@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "./api";
 import FileGrid from "./components/FileGrid";
+import PasswordModal from "./components/PasswordModal";
+import RemoteFolderModal from "./components/RemoteFolderModal";
 import Sidebar from "./components/Sidebar";
 import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
@@ -26,6 +28,12 @@ function App() {
   const [tagEditFile, setTagEditFile] = useState<FileEntry | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Remote (SSH) state: the add-folder modal, a pending password request
+  // (hostkey), and an epoch bumped on login so visible documents refetch.
+  const [remoteModalOpen, setRemoteModalOpen] = useState(false);
+  const [authHost, setAuthHost] = useState<string | null>(null);
+  const [authEpoch, setAuthEpoch] = useState(0);
 
   const fail = (e: unknown) => setError(String(e));
 
@@ -180,13 +188,29 @@ function App() {
   const rescan = async () => {
     setScanning(true);
     try {
-      await api.rescan();
+      const r = await api.rescan();
       await refreshSidebar();
       await refreshFiles();
+      // A locked remote host blocks its folders' scan — ask for its password.
+      if (r.needs_auth.length > 0) setAuthHost(r.needs_auth[0]);
     } catch (e) {
       fail(e);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const submitPassword = async (hostkey: string, password: string) => {
+    setAuthHost(null);
+    try {
+      await api.setRemotePassword(hostkey, password);
+      // Refetch everything visible with the fresh credentials, and rescan so
+      // folders that were locked get indexed (which also re-prompts if more
+      // hosts still need a password).
+      setAuthEpoch((e) => e + 1);
+      await rescan();
+    } catch (e) {
+      fail(e);
     }
   };
 
@@ -203,16 +227,18 @@ function App() {
     }
   };
 
-  // Escape closes the open modal / viewer.
+  // Escape closes the topmost modal / viewer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (tagEditFile) setTagEditFile(null);
+      if (authHost) setAuthHost(null);
+      else if (remoteModalOpen) setRemoteModalOpen(false);
+      else if (tagEditFile) setTagEditFile(null);
       else if (openFile) setOpenFile(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openFile, tagEditFile]);
+  }, [openFile, tagEditFile, remoteModalOpen, authHost]);
 
   const title = useMemo(() => {
     switch (nav.kind) {
@@ -241,6 +267,7 @@ function App() {
         dirs={dirs}
         tags={tags}
         onAddFolder={addFolder}
+        onAddRemoteFolder={() => setRemoteModalOpen(true)}
         onRemoveFolder={removeFolder}
       />
 
@@ -284,6 +311,7 @@ function App() {
             <FileGrid
               files={files}
               layout={layout}
+              authEpoch={authEpoch}
               onOpen={handleOpen}
               onToggleFavorite={toggleFavorite}
               onForget={forgetFile}
@@ -295,10 +323,12 @@ function App() {
       {openFile && (
         <Viewer
           file={openFile}
+          authEpoch={authEpoch}
           onClose={() => setOpenFile(null)}
           onToggleFavorite={toggleFavorite}
           onEditTags={(f) => setTagEditFile(f)}
           onForget={forgetFile}
+          onAuthNeeded={(hk) => setAuthHost(hk)}
           onError={fail}
         />
       )}
@@ -322,6 +352,25 @@ function App() {
             />
           </div>
         </div>
+      )}
+
+      {remoteModalOpen && (
+        <RemoteFolderModal
+          onClose={() => setRemoteModalOpen(false)}
+          onAdded={async () => {
+            setRemoteModalOpen(false);
+            await refreshSidebar();
+            await refreshFiles();
+          }}
+        />
+      )}
+
+      {authHost && (
+        <PasswordModal
+          hostkey={authHost}
+          onSubmit={(pw) => submitPassword(authHost, pw)}
+          onCancel={() => setAuthHost(null)}
+        />
       )}
 
       {error && (

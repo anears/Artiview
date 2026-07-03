@@ -7,12 +7,20 @@ import ForgetButton, { canForget } from "./ForgetButton";
 interface Props {
   files: FileEntry[];
   layout: "grid" | "list";
+  authEpoch: number;
   onOpen: (f: FileEntry) => void;
   onToggleFavorite: (f: FileEntry) => void;
   onForget: (f: FileEntry) => void;
 }
 
-export default function FileGrid({ files, layout, onOpen, onToggleFavorite, onForget }: Props) {
+export default function FileGrid({
+  files,
+  layout,
+  authEpoch,
+  onOpen,
+  onToggleFavorite,
+  onForget,
+}: Props) {
   if (layout === "list") {
     return (
       <div className="list">
@@ -67,6 +75,7 @@ export default function FileGrid({ files, layout, onOpen, onToggleFavorite, onFo
         <FileCard
           key={f.id}
           file={f}
+          authEpoch={authEpoch}
           onOpen={onOpen}
           onToggleFavorite={onToggleFavorite}
           onForget={onForget}

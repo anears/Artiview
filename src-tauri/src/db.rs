@@ -43,6 +43,8 @@ pub struct ScanResult {
     pub added: i64,
     pub updated: i64,
     pub removed: i64,
+    /// Remote hostkeys that need a password before their folders can scan.
+    pub needs_auth: Vec<String>,
 }
 
 pub fn init(conn: &Connection) -> rusqlite::Result<()> {
@@ -91,6 +93,15 @@ pub fn init(conn: &Connection) -> rusqlite::Result<()> {
             file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
             tag_id  INTEGER NOT NULL REFERENCES tags(id)  ON DELETE CASCADE,
             PRIMARY KEY (file_id, tag_id)
+        );
+
+        -- Auth metadata for SSH/SFTP remotes, keyed by the user-entered target
+        -- ("alias" | "user@host" | "user@host:port"). Passwords are NEVER
+        -- stored here — they live in memory only, for the current app run.
+        CREATE TABLE IF NOT EXISTS remotes (
+            hostkey  TEXT PRIMARY KEY,
+            auth     TEXT NOT NULL DEFAULT 'auto',
+            key_path TEXT
         );
         "#,
     )
@@ -401,6 +412,32 @@ pub fn standalone_files(conn: &Connection) -> rusqlite::Result<Vec<(i64, String,
         .query_map([], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, i64>(4)? != 0))
         })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+// ---- remotes ---------------------------------------------------------------
+
+/// Persist how to authenticate to a remote host (never the password itself).
+pub fn upsert_remote(
+    conn: &Connection,
+    hostkey: &str,
+    auth: &str,
+    key_path: Option<&str>,
+) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO remotes(hostkey, auth, key_path) VALUES (?1, ?2, ?3)
+         ON CONFLICT(hostkey) DO UPDATE SET auth = ?2, key_path = ?3",
+        params![hostkey, auth, key_path],
+    )?;
+    Ok(())
+}
+
+/// All stored remotes as (hostkey, auth, key_path).
+pub fn list_remotes(conn: &Connection) -> rusqlite::Result<Vec<(String, String, Option<String>)>> {
+    let mut stmt = conn.prepare("SELECT hostkey, auth, key_path FROM remotes")?;
+    let rows = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
 }

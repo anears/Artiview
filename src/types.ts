@@ -50,6 +50,8 @@ export interface ScanResult {
   added: number;
   updated: number;
   removed: number;
+  /** Remote hostkeys that need a password before their folders can scan. */
+  needs_auth: string[];
 }
 
 export type NavKind = "all" | "recent" | "favorites" | "folder" | "tag";

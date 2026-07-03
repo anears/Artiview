@@ -3,7 +3,7 @@ import MarkdownIt from "markdown-it";
 // which keeps the bundle small while covering everything agent docs use.
 import hljs from "highlight.js/lib/common";
 import { useCallback, useEffect, useState } from "react";
-import { fileSrc } from "./api";
+import { fileSrc, isRemotePath, SFTP_PREFIX } from "./api";
 import { injectFindScript, wrapHtmlForViewer } from "./find";
 import { parentDir } from "./util";
 // CSS is injected into the iframe document (it has its own DOM), so we pull the
@@ -38,6 +38,15 @@ function isAbsoluteRef(url: string): boolean {
 }
 
 function joinPath(dir: string, rel: string): string {
+  // A remote dir carries an sftp://<target> prefix that must survive
+  // normalization untouched — `..` may not climb past the target.
+  let prefix = "";
+  if (isRemotePath(dir)) {
+    const rest = dir.slice(SFTP_PREFIX.length);
+    const slash = rest.indexOf("/");
+    prefix = SFTP_PREFIX + (slash < 0 ? rest : rest.slice(0, slash));
+    dir = slash < 0 ? "" : rest.slice(slash);
+  }
   const parts = `${dir}/${rel}`.split("/");
   const out: string[] = [];
   for (const p of parts) {
@@ -45,7 +54,7 @@ function joinPath(dir: string, rel: string): string {
     if (p === "..") out.pop();
     else out.push(p);
   }
-  return `/${out.join("/")}`;
+  return `${prefix}/${out.join("/")}`;
 }
 
 function resolveRef(url: string, dir: string): string {
@@ -113,6 +122,8 @@ export type DocSource = {
   notFound: boolean;
   /** Fetch/render failed for a reason other than the file being gone. */
   loadError: boolean;
+  /** Remote host needs a password (401): its hostkey, else null. */
+  needsAuth: string | null;
   /** Re-run the fetch/probe, e.g. from a retry affordance on an error card. */
   retry: () => void;
 };
@@ -141,9 +152,10 @@ export function useDocSource(
   // HTML thumbnails render straight from the asset URL; everything else needs a
   // fetch + transform pass before it can be shown.
   const fetched = kind === "md" || findable;
-  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "notfound" | "error">(
+  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "notfound" | "auth" | "error">(
     enabled && fetched ? "loading" : "idle",
   );
+  const [authHost, setAuthHost] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt((a) => a + 1), []);
 
@@ -152,10 +164,18 @@ export function useDocSource(
     let cancelled = false;
     setSrcDoc(undefined);
     setStatus("loading");
-    // A moved/deleted file resolves to a 404 from the asset protocol; anything
-    // else (transient failure, render throw) is not proof the file is gone.
+    // A moved/deleted file resolves to a 404; a locked remote host answers 401
+    // with its hostkey as the body; anything else (transient failure, render
+    // throw) is not proof the file is gone.
     const failWith = (r?: Response) => {
       if (!cancelled) setStatus(r?.status === 404 ? "notfound" : "error");
+    };
+    const authWith = async (r: Response) => {
+      const hk = await r.text().catch(() => "");
+      if (!cancelled) {
+        setAuthHost(hk || null);
+        setStatus(hk ? "auth" : "error");
+      }
     };
 
     if (!fetched) {
@@ -163,6 +183,7 @@ export function useDocSource(
       // silently — probe for existence so the card can show its broken state.
       fetch(fileSrc(path))
         .then((r) => {
+          if (r.status === 401) return authWith(r);
           r.body?.cancel().catch(() => {});
           if (r.ok) {
             if (!cancelled) setStatus("ok");
@@ -173,7 +194,8 @@ export function useDocSource(
       fetch(fileSrc(path))
         .then((r) => {
           if (!r.ok) {
-            failWith(r);
+            if (r.status === 401) authWith(r);
+            else failWith(r);
             return undefined;
           }
           return r.text();
@@ -200,6 +222,7 @@ export function useDocSource(
     ok: status === "ok",
     notFound: status === "notfound",
     loadError: status === "error",
+    needsAuth: status === "auth" ? authHost : null,
     retry,
   };
   // The asset URL can render immediately; the existence probe reports async.

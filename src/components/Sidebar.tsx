@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isRemotePath, SFTP_PREFIX } from "../api";
 import { buildFolderTree } from "../foldertree";
 import type { DirCount, Folder, FolderNode, Nav, TagCount } from "../types";
 
@@ -9,6 +10,7 @@ interface Props {
   dirs: DirCount[];
   tags: TagCount[];
   onAddFolder: () => void;
+  onAddRemoteFolder: () => void;
   onRemoveFolder: (f: Folder) => void;
 }
 
@@ -19,6 +21,7 @@ export default function Sidebar({
   dirs,
   tags,
   onAddFolder,
+  onAddRemoteFolder,
   onRemoveFolder,
 }: Props) {
   const tree = useMemo(() => buildFolderTree(folders, dirs), [folders, dirs]);
@@ -67,9 +70,14 @@ export default function Sidebar({
       <div className="nav-section">
         <div className="nav-section-head">
           <span>폴더</span>
-          <button className="mini-btn" title="폴더 추가" onClick={onAddFolder}>
-            +
-          </button>
+          <span className="head-btns">
+            <button className="mini-btn" title="원격 폴더 추가 (SSH)" onClick={onAddRemoteFolder}>
+              🌐
+            </button>
+            <button className="mini-btn" title="폴더 추가" onClick={onAddFolder}>
+              +
+            </button>
+          </span>
         </div>
         {tree.length === 0 && <div className="nav-empty">등록된 폴더 없음</div>}
         {tree.map((root) => (
@@ -125,6 +133,11 @@ function TreeNode({ node, depth, nav, setNav, expanded, toggle, folders, onRemov
   const hasChildren = node.children.length > 0;
   const isOpen = expanded.has(node.path);
   const active = nav.kind === "folder" && nav.folderPath === node.path;
+  const remote = isRoot && isRemotePath(node.path);
+  // "sftp://user@host:2222/a/b" → "user@host:2222" for the root chip.
+  const remoteHost = remote
+    ? node.path.slice(SFTP_PREFIX.length).split("/", 1)[0]
+    : null;
 
   return (
     <>
@@ -144,8 +157,11 @@ function TreeNode({ node, depth, nav, setNav, expanded, toggle, folders, onRemov
         >
           {isOpen ? "▾" : "▸"}
         </button>
-        <span className="nav-ico">📁</span>
-        <span className="nav-label">{node.name}</span>
+        <span className="nav-ico">{remote ? "🌐" : "📁"}</span>
+        <span className="nav-label">
+          {node.name}
+          {remoteHost && <span className="nav-host">@{remoteHost}</span>}
+        </span>
         <span className="nav-count">{node.count}</span>
         {isRoot && (
           <button

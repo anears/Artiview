@@ -2,6 +2,7 @@ import type { FileEntry } from "../types";
 import { displayName } from "../types";
 import { formatSize, formatTime, parentDir } from "../util";
 import FileCard from "./FileCard";
+import ForgetButton, { canForget } from "./ForgetButton";
 
 interface Props {
   files: FileEntry[];
@@ -47,16 +48,13 @@ export default function FileGrid({ files, layout, onOpen, onToggleFavorite, onFo
             </div>
             <div className="row-size">{formatSize(f.size)}</div>
             <div className="row-time">{formatTime(f.modified)}</div>
-            <button
-              className="row-remove"
-              title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
-              onClick={(e) => {
-                e.stopPropagation();
-                onForget(f);
-              }}
-            >
-              ×
-            </button>
+            {canForget(f) ? (
+              <ForgetButton file={f} className="row-remove" onForget={onForget}>
+                ×
+              </ForgetButton>
+            ) : (
+              <span className="row-remove-spacer" />
+            )}
           </div>
         ))}
       </div>

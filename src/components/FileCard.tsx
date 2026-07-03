@@ -3,6 +3,7 @@ import type { FileEntry } from "../types";
 import { displayName, fileKind } from "../types";
 import { useDocSource } from "../markdown";
 import { formatTime, parentDir } from "../util";
+import ForgetButton from "./ForgetButton";
 
 // Thumbnails render the real HTML in an off-screen-sized iframe, then scale it
 // down to the card width. This keeps previews always-accurate with no
@@ -44,10 +45,12 @@ export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: P
   const scale = width ? width / VW : 0;
   const kind = fileKind(file);
   const ready = inView && scale > 0;
-  const doc = useDocSource(file.path, kind, ready);
+  // The refresh key retries the fetch/probe when a rescan updates the entry.
+  const doc = useDocSource(file.path, kind, ready, false, `${file.modified}-${file.missing}`);
   const frameProps = doc.src ? { src: doc.src } : { srcDoc: doc.srcDoc };
-  // Rescan flagged it missing, or the (Markdown) preview fetch just failed.
-  const broken = file.missing || doc.error;
+  // The preview fetch/probe failed, or rescan flagged the file missing and the
+  // live result hasn't disproved it.
+  const broken = doc.notFound || doc.loadError || (file.missing && !doc.ok);
 
   return (
     <div className={`card ${broken ? "missing" : ""}`} onClick={() => onOpen(file)} title={file.path}>
@@ -62,16 +65,9 @@ export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: P
           <div className="thumb-missing">
             <div className="tm-ico">⚠</div>
             <div className="tm-text">파일을 찾을 수 없음</div>
-            <button
-              className="tm-remove"
-              title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
-              onClick={(e) => {
-                e.stopPropagation();
-                onForget(file);
-              }}
-            >
+            <ForgetButton file={file} className="tm-remove" onForget={onForget}>
               라이브러리에서 제거
-            </button>
+            </ForgetButton>
           </div>
         ) : ready && (doc.src || doc.srcDoc) ? (
           <iframe

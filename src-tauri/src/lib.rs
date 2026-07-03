@@ -93,11 +93,24 @@ fn index_single(
 fn scan_folder(conn: &Connection, folder_id: i64, root: &str, now: i64) -> rusqlite::Result<ScanResult> {
     let mut res = ScanResult::default();
 
-    // Existing index for this folder: path -> (id, modified, size)
+    // Existing index for this folder: path -> (id, modified, size, missing)
     let stats = db::folder_file_stats(conn, folder_id)?;
+
+    // An unreachable root (unmounted drive, offline share) must not be read as
+    // "every file was deleted": flag the entries missing instead, keeping their
+    // favorites/tags intact until the root comes back.
+    if !Path::new(root).is_dir() {
+        for (id, _, _, _, missing) in &stats {
+            if !missing {
+                db::set_missing(conn, *id, true)?;
+            }
+        }
+        return Ok(res);
+    }
+
     let mut known = std::collections::HashMap::new();
-    for (id, path, modified, size) in stats {
-        known.insert(path, (id, modified, size));
+    for (id, path, modified, size, missing) in stats {
+        known.insert(path, (id, modified, size, missing));
     }
     let mut seen: HashSet<String> = HashSet::new();
 
@@ -115,10 +128,14 @@ fn scan_folder(conn: &Connection, folder_id: i64, root: &str, now: i64) -> rusql
         res.scanned += 1;
 
         // Skip re-indexing if size + mtime are unchanged.
-        if let Some((_, modified, size)) = known.get(&path_str) {
+        if let Some((id, modified, size, missing)) = known.get(&path_str) {
             if let Ok(m) = std::fs::metadata(path) {
                 let cur_mod = m.modified().ok().map(epoch).unwrap_or(0);
                 if *modified == cur_mod && *size == m.len() as i64 {
+                    // Seen on disk again after an unreachable-root pass.
+                    if *missing {
+                        db::set_missing(conn, *id, false)?;
+                    }
                     continue;
                 }
             }
@@ -131,8 +148,9 @@ fn scan_folder(conn: &Connection, folder_id: i64, root: &str, now: i64) -> rusql
         }
     }
 
-    // Anything previously known but not seen this pass has been deleted.
-    for (path, (id, _, _)) in &known {
+    // The walk succeeded, so anything previously known but not seen this pass
+    // has genuinely been deleted.
+    for (path, (id, _, _, _)) in &known {
         if !seen.contains(path) {
             db::delete_file(conn, *id)?;
             res.removed += 1;
@@ -181,13 +199,29 @@ fn rescan(state: State<AppState>) -> CmdResult<ScanResult> {
         total.removed += r.removed;
     }
 
-    // Re-validate individually-opened files (no parent folder to scan): mark
-    // them missing when their path no longer resolves, and clear the flag if
-    // they reappear. Their entry is kept so the user can see + forget them.
-    for (id, path, was_missing) in db::standalone_files(&conn).map_err(|e| e.to_string())? {
-        let now_missing = !Path::new(&path).is_file();
-        if now_missing != was_missing {
-            db::set_missing(&conn, id, now_missing).map_err(|e| e.to_string())?;
+    // Re-validate individually-opened files (no parent folder to scan):
+    // re-index ones that changed on disk, mark them missing when their path no
+    // longer resolves, and re-index them if they reappear. Their entry is kept
+    // so the user can see + forget them.
+    for (id, path, modified, size, was_missing) in
+        db::standalone_files(&conn).map_err(|e| e.to_string())?
+    {
+        let p = Path::new(&path);
+        match std::fs::metadata(p).ok().filter(|m| m.is_file()) {
+            Some(m) => {
+                total.scanned += 1;
+                let cur_mod = m.modified().ok().map(epoch).unwrap_or(0);
+                if was_missing || cur_mod != modified || m.len() as i64 != size {
+                    // Also clears the missing flag via the upsert.
+                    index_single(&conn, p, None, now).map_err(|e| e.to_string())?;
+                    total.updated += 1;
+                }
+            }
+            None => {
+                if !was_missing {
+                    db::set_missing(&conn, id, true).map_err(|e| e.to_string())?;
+                }
+            }
         }
     }
     Ok(total)
@@ -241,15 +275,11 @@ fn open_path(state: State<AppState>, path: String) -> CmdResult<FileEntry> {
     }
     let conn = state.db.lock().unwrap();
     let now = now_secs();
-    let id = match db::get_file_by_path(&conn, &path).map_err(|e| e.to_string())? {
-        // Re-opened via the picker → the file demonstrably exists, so clear any
-        // stale missing flag left over from a previous rescan.
-        Some(id) => {
-            db::set_missing(&conn, id, false).map_err(|e| e.to_string())?;
-            id
-        }
-        None => index_single(&conn, p, None, now).map_err(|e| e.to_string())?.0,
-    };
+    // Index unconditionally: for a known entry this refreshes its metadata +
+    // FTS row (the file may have been rewritten since) and clears any stale
+    // missing flag; for a new one it creates the entry. An existing folder_id
+    // survives via COALESCE in the upsert.
+    let id = index_single(&conn, p, None, now).map_err(|e| e.to_string())?.0;
     db::record_open(&conn, id, now).map_err(|e| e.to_string())?;
     db::get_file(&conn, id)
         .map_err(|e| e.to_string())?

@@ -65,7 +65,12 @@ function App() {
 
   const refreshFiles = useCallback(async () => {
     try {
-      setFiles(await api.listFiles(argsFor(nav, debouncedQuery)));
+      const next = await api.listFiles(argsFor(nav, debouncedQuery));
+      setFiles(next);
+      // Keep the open viewer's entry in sync — e.g. a rescan just cleared its
+      // missing flag or re-indexed it. Absence just means it fell out of the
+      // current filter, so keep the stale entry rather than closing the viewer.
+      setOpenFile((prev) => (prev ? (next.find((f) => f.id === prev.id) ?? prev) : prev));
     } catch (e) {
       fail(e);
     }
@@ -114,11 +119,12 @@ function App() {
       )
     )
       return;
-    // Optimistic: drop it from the list and close the viewer if it was open.
+    // Optimistic: drop it from the list. The viewer only closes once the
+    // delete lands, so a failure doesn't kick the user out of the document.
     setFiles((prev) => prev.filter((x) => x.id !== f.id));
-    setOpenFile((prev) => (prev && prev.id === f.id ? null : prev));
     try {
       await api.forgetFile(f.id);
+      setOpenFile((prev) => (prev && prev.id === f.id ? null : prev));
       await refreshSidebar();
     } catch (e) {
       fail(e);
@@ -293,6 +299,7 @@ function App() {
           onToggleFavorite={toggleFavorite}
           onEditTags={(f) => setTagEditFile(f)}
           onForget={forgetFile}
+          onError={fail}
         />
       )}
 

@@ -201,17 +201,17 @@ pub fn delete_file(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Indexed files for a folder as (id, path, modified, size) — used on rescan to
-/// skip unchanged files and detect deletions.
+/// Indexed files for a folder as (id, path, modified, size, missing) — used on
+/// rescan to skip unchanged files and detect deletions.
 pub fn folder_file_stats(
     conn: &Connection,
     folder_id: i64,
-) -> rusqlite::Result<Vec<(i64, String, i64, i64)>> {
+) -> rusqlite::Result<Vec<(i64, String, i64, i64, bool)>> {
     let mut stmt =
-        conn.prepare("SELECT id, path, modified, size FROM files WHERE folder_id = ?1")?;
+        conn.prepare("SELECT id, path, modified, size, missing FROM files WHERE folder_id = ?1")?;
     let rows = stmt
         .query_map([folder_id], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, i64>(4)? != 0))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
@@ -294,11 +294,6 @@ pub fn list_files(
 
 pub fn get_file(conn: &Connection, id: i64) -> rusqlite::Result<Option<FileEntry>> {
     Ok(load_entries(conn, &[id], "")?.into_iter().next())
-}
-
-pub fn get_file_by_path(conn: &Connection, path: &str) -> rusqlite::Result<Option<i64>> {
-    conn.query_row("SELECT id FROM files WHERE path = ?1", [path], |r| r.get(0))
-        .optional()
 }
 
 /// Load full FileEntry rows for a set of ids, preserving the requested order.
@@ -397,13 +392,14 @@ pub fn set_missing(conn: &Connection, id: i64, missing: bool) -> rusqlite::Resul
 }
 
 /// Individually-opened files (those not under any registered folder), as
-/// (id, path, missing). Folder rescans never touch these, so `rescan` walks
-/// this list separately to keep their `missing` flag in sync with disk.
-pub fn standalone_files(conn: &Connection) -> rusqlite::Result<Vec<(i64, String, bool)>> {
-    let mut stmt = conn.prepare("SELECT id, path, missing FROM files WHERE folder_id IS NULL")?;
+/// (id, path, modified, size, missing). Folder rescans never touch these, so
+/// `rescan` walks this list separately to keep them in sync with disk.
+pub fn standalone_files(conn: &Connection) -> rusqlite::Result<Vec<(i64, String, i64, i64, bool)>> {
+    let mut stmt =
+        conn.prepare("SELECT id, path, modified, size, missing FROM files WHERE folder_id IS NULL")?;
     let rows = stmt
         .query_map([], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get::<_, i64>(2)? != 0))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get::<_, i64>(4)? != 0))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(rows)
@@ -412,11 +408,12 @@ pub fn standalone_files(conn: &Connection) -> rusqlite::Result<Vec<(i64, String,
 // ---- tags ------------------------------------------------------------------
 
 pub fn list_tags(conn: &Connection) -> rusqlite::Result<Vec<TagCount>> {
+    // Missing files still appear in the file list (badged) with their tag
+    // chips, so their tags must stay navigable in the sidebar too.
     let mut stmt = conn.prepare(
         "SELECT t.name, COUNT(ft.file_id)
-         FROM tags t LEFT JOIN file_tags ft ON ft.tag_id = t.id
-         LEFT JOIN files f ON f.id = ft.file_id AND f.missing = 0
-         GROUP BY t.id HAVING COUNT(f.id) > 0 ORDER BY t.name",
+         FROM tags t JOIN file_tags ft ON ft.tag_id = t.id
+         GROUP BY t.id ORDER BY t.name",
     )?;
     let rows = stmt
         .query_map([], |r| {

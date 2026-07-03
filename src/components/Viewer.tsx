@@ -4,6 +4,7 @@ import { useDebounced } from "../hooks";
 import { useDocSource } from "../markdown";
 import type { FileEntry } from "../types";
 import { displayName, fileKind } from "../types";
+import ForgetButton, { canForget } from "./ForgetButton";
 
 interface Props {
   file: FileEntry;
@@ -11,16 +12,29 @@ interface Props {
   onToggleFavorite: (f: FileEntry) => void;
   onEditTags: (f: FileEntry) => void;
   onForget: (f: FileEntry) => void;
+  onError: (e: unknown) => void;
 }
 
-export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, onForget }: Props) {
+export default function Viewer({
+  file,
+  onClose,
+  onToggleFavorite,
+  onEditTags,
+  onForget,
+  onError,
+}: Props) {
   const kind = fileKind(file);
-  const doc = useDocSource(file.path, kind, true, true); // findable: inject search support
-  // The file can't be read — either rescan already flagged it, or the live
-  // fetch just failed (moved/renamed/deleted since it was indexed).
-  const broken = file.missing || doc.error;
+  // findable: inject search support. The refresh key retries the fetch when a
+  // rescan / re-open updates the entry, so a restored file recovers in place.
+  const doc = useDocSource(file.path, kind, true, true, `${file.modified}-${file.missing}`);
+  // The live fetch is the ground truth: a stale DB `missing` flag only counts
+  // while the fetch hasn't disproved it.
+  const notFound = doc.notFound || (file.missing && !doc.ok && !doc.loading);
+  const broken = notFound || doc.loadError;
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const tryOpenInBrowser = () => openInBrowser(file.path).catch(onError);
 
   const [findOpen, setFindOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -32,6 +46,8 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, on
   openRef.current = findOpen;
   const queryRef = useRef(query);
   queryRef.current = query;
+  const brokenRef = useRef(broken);
+  brokenRef.current = broken;
 
   const post = useCallback((msg: Record<string, unknown>) => {
     frameRef.current?.contentWindow?.postMessage({ ...msg, __artiview: true }, "*");
@@ -50,6 +66,9 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, on
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((e.metaKey || e.ctrlKey) && k === "f") {
+        // No find on a broken file: the bar wouldn't render, and the invisible
+        // open state would swallow the next Escape meant to close the viewer.
+        if (brokenRef.current) return;
         e.preventDefault();
         e.stopPropagation();
         openFind();
@@ -87,6 +106,11 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, on
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, [openFind, closeFind, post]);
+
+  // If the document breaks while find is open, drop the now-invisible state.
+  useEffect(() => {
+    if (broken) closeFind();
+  }, [broken, closeFind]);
 
   // Focus the field when the bar opens.
   useEffect(() => {
@@ -141,14 +165,12 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, on
           >
             {file.favorite ? "★" : "☆"}
           </button>
-          <button
-            className="btn ghost danger"
-            onClick={() => onForget(file)}
-            title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
-          >
-            🗑 제거
-          </button>
-          <button className="btn" onClick={() => openInBrowser(file.path)} title="브라우저로 열기">
+          {canForget(file) && (
+            <ForgetButton file={file} className="btn ghost danger" onForget={onForget}>
+              🗑 제거
+            </ForgetButton>
+          )}
+          <button className="btn" onClick={tryOpenInBrowser} title="브라우저로 열기">
             브라우저로 ↗
           </button>
         </div>
@@ -202,19 +224,30 @@ export default function Viewer({ file, onClose, onToggleFavorite, onEditTags, on
         <div className="viewer-missing">
           <div className="vm-card">
             <div className="vm-ico">⚠</div>
-            <h2>파일을 찾을 수 없습니다</h2>
-            <p>
-              이 위치에서 파일을 불러오지 못했어요. 이동·이름변경·삭제되었을 수 있습니다.
-              원본을 다시 찾았다면 <strong>파일 열기</strong>로 다시 등록하세요.
-            </p>
+            <h2>{notFound ? "파일을 찾을 수 없습니다" : "파일을 불러오지 못했습니다"}</h2>
+            {notFound ? (
+              <p>
+                이 위치에서 파일을 불러오지 못했어요. 이동·이름변경·삭제되었을 수 있습니다.
+                원본을 다시 찾았다면 <strong>파일 열기</strong>로 다시 등록하세요.
+              </p>
+            ) : (
+              // A render/transient failure is NOT proof the file is gone, so no
+              // destructive remove action here — just non-destructive fallbacks.
+              <p>파일은 존재하지만 내용을 표시하지 못했어요. 다시 열거나 브라우저로 열어 보세요.</p>
+            )}
             <code className="vm-path">{file.path}</code>
             <div className="vm-actions">
-              <button className="btn" onClick={() => openInBrowser(file.path)}>
+              <button className="btn" onClick={doc.retry}>
+                다시 시도
+              </button>
+              <button className="btn" onClick={tryOpenInBrowser}>
                 브라우저로 열기 시도
               </button>
-              <button className="btn primary danger" onClick={() => onForget(file)}>
-                라이브러리에서 제거
-              </button>
+              {notFound && (
+                <ForgetButton file={file} className="btn primary danger" onForget={onForget}>
+                  라이브러리에서 제거
+                </ForgetButton>
+              )}
             </div>
           </div>
         </div>

@@ -360,7 +360,7 @@ button {
 }
 
 .btn.ghost.danger:hover {
-  background: rgba(255, 107, 107, 0.12);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
 }
 
@@ -978,8 +978,14 @@ button {
 }
 
 .row-remove:hover {
-  background: rgba(255, 107, 107, 0.14);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
   color: var(--danger);
+}
+
+/* Keeps row columns aligned when a row has no remove button. */
+.row-remove-spacer {
+  width: 24px;
+  flex-shrink: 0;
 }
 
 .viewer-missing {

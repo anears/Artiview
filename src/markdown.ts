@@ -2,7 +2,7 @@ import MarkdownIt from "markdown-it";
 // `lib/common` ships the ~40 most-used languages instead of all ~190,
 // which keeps the bundle small while covering everything agent docs use.
 import hljs from "highlight.js/lib/common";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fileSrc } from "./api";
 import { injectFindScript, wrapHtmlForViewer } from "./find";
 import { parentDir } from "./util";
@@ -103,7 +103,19 @@ export function renderMarkdownDoc(source: string, dir: string): string {
 <body><article class="markdown-body">${body}</article></body></html>`;
 }
 
-export type DocSource = { src?: string; srcDoc?: string; loading: boolean; error: boolean };
+export type DocSource = {
+  src?: string;
+  srcDoc?: string;
+  loading: boolean;
+  /** The last fetch/probe positively confirmed the file is readable. */
+  ok: boolean;
+  /** The asset protocol answered 404 — the file is gone from its path. */
+  notFound: boolean;
+  /** Fetch/render failed for a reason other than the file being gone. */
+  loadError: boolean;
+  /** Re-run the fetch/probe, e.g. from a retry affordance on an error card. */
+  retry: () => void;
+};
 
 /**
  * Resolve what to feed an <iframe> for a file:
@@ -122,44 +134,75 @@ export function useDocSource(
   kind: "html" | "md",
   enabled: boolean,
   findable = false,
+  /** Change to force a refetch, e.g. after a rescan updates the file entry. */
+  refreshKey: unknown = 0,
 ): DocSource {
   const [srcDoc, setSrcDoc] = useState<string | undefined>();
-  const [error, setError] = useState(false);
   // HTML thumbnails render straight from the asset URL; everything else needs a
   // fetch + transform pass before it can be shown.
   const fetched = kind === "md" || findable;
-  const [loading, setLoading] = useState(fetched);
+  const [status, setStatus] = useState<"idle" | "loading" | "ok" | "notfound" | "error">(
+    enabled && fetched ? "loading" : "idle",
+  );
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((a) => a + 1), []);
 
   useEffect(() => {
-    if (!fetched || !enabled) return;
+    if (!enabled) return;
     let cancelled = false;
-    setLoading(true);
     setSrcDoc(undefined);
-    setError(false);
-    fetch(fileSrc(path))
-      .then((r) => {
-        // A moved/deleted file resolves to a 404 from the asset protocol.
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.text();
-      })
-      .then((text) => {
-        if (cancelled) return;
-        let doc =
-          kind === "md"
-            ? renderMarkdownDoc(text, parentDir(path))
-            : wrapHtmlForViewer(text, fileSrc(path));
-        if (kind === "md" && findable) doc = injectFindScript(doc);
-        setSrcDoc(doc);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => !cancelled && setLoading(false));
+    setStatus("loading");
+    // A moved/deleted file resolves to a 404 from the asset protocol; anything
+    // else (transient failure, render throw) is not proof the file is gone.
+    const failWith = (r?: Response) => {
+      if (!cancelled) setStatus(r?.status === 404 ? "notfound" : "error");
+    };
+
+    if (!fetched) {
+      // The iframe loads the asset URL natively, where a missing file fails
+      // silently — probe for existence so the card can show its broken state.
+      fetch(fileSrc(path))
+        .then((r) => {
+          r.body?.cancel().catch(() => {});
+          if (r.ok) {
+            if (!cancelled) setStatus("ok");
+          } else failWith(r);
+        })
+        .catch(() => failWith());
+    } else {
+      fetch(fileSrc(path))
+        .then((r) => {
+          if (!r.ok) {
+            failWith(r);
+            return undefined;
+          }
+          return r.text();
+        })
+        .then((text) => {
+          if (cancelled || text === undefined) return;
+          let doc =
+            kind === "md"
+              ? renderMarkdownDoc(text, parentDir(path))
+              : wrapHtmlForViewer(text, fileSrc(path));
+          if (kind === "md" && findable) doc = injectFindScript(doc);
+          setSrcDoc(doc);
+          setStatus("ok");
+        })
+        .catch(() => failWith());
+    }
     return () => {
       cancelled = true;
     };
-  }, [path, kind, enabled, fetched]);
+  }, [path, kind, enabled, fetched, findable, refreshKey, attempt]);
 
-  if (kind === "html" && !findable) return { src: fileSrc(path), loading: false, error: false };
-  return { srcDoc, loading, error };
+  const state = {
+    loading: status === "loading",
+    ok: status === "ok",
+    notFound: status === "notfound",
+    loadError: status === "error",
+    retry,
+  };
+  // The asset URL can render immediately; the existence probe reports async.
+  if (!fetched) return { src: fileSrc(path), ...state, loading: false };
+  return { srcDoc, ...state };
 }

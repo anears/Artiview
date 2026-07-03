@@ -13,12 +13,13 @@ const VH = 800;
 
 interface Props {
   file: FileEntry;
+  authEpoch: number;
   onOpen: (f: FileEntry) => void;
   onToggleFavorite: (f: FileEntry) => void;
   onForget: (f: FileEntry) => void;
 }
 
-export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: Props) {
+export default function FileCard({ file, authEpoch, onOpen, onToggleFavorite, onForget }: Props) {
   const thumbRef = useRef<HTMLDivElement | null>(null);
   const [width, setWidth] = useState(0);
   const [inView, setInView] = useState(false);
@@ -45,12 +46,20 @@ export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: P
   const scale = width ? width / VW : 0;
   const kind = fileKind(file);
   const ready = inView && scale > 0;
-  // The refresh key retries the fetch/probe when a rescan updates the entry.
-  const doc = useDocSource(file.path, kind, ready, false, `${file.modified}-${file.missing}`);
+  // The refresh key retries the fetch/probe when a rescan or login updates the entry.
+  const doc = useDocSource(
+    file.path,
+    kind,
+    ready,
+    false,
+    `${file.modified}-${file.missing}-${authEpoch}`,
+  );
   const frameProps = doc.src ? { src: doc.src } : { srcDoc: doc.srcDoc };
+  // A locked remote host proves nothing about the file — show 🔒, not broken.
+  const needsAuth = doc.needsAuth !== null;
   // The preview fetch/probe failed, or rescan flagged the file missing and the
   // live result hasn't disproved it.
-  const broken = doc.notFound || doc.loadError || (file.missing && !doc.ok);
+  const broken = !needsAuth && (doc.notFound || doc.loadError || (file.missing && !doc.ok));
 
   return (
     <div className={`card ${broken ? "missing" : ""}`} onClick={() => onOpen(file)} title={file.path}>
@@ -61,7 +70,12 @@ export default function FileCard({ file, onOpen, onToggleFavorite, onForget }: P
           so the preview runs in an isolated origin with no access to the parent
           app or the Tauri IPC. Do not add `allow-same-origin`.
         */}
-        {broken ? (
+        {needsAuth ? (
+          <div className="thumb-missing thumb-auth">
+            <div className="tm-ico">🔒</div>
+            <div className="tm-text">인증 필요 — 열면 비밀번호를 물어봅니다</div>
+          </div>
+        ) : broken ? (
           <div className="thumb-missing">
             <div className="tm-ico">⚠</div>
             <div className="tm-text">파일을 찾을 수 없음</div>

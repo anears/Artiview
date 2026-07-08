@@ -1,3 +1,6 @@
+import type { SortKey, SortSpec } from "../types";
+import { SORT_LABELS } from "../types";
+
 interface Props {
   title: string;
   count: number;
@@ -5,6 +8,9 @@ interface Props {
   setQuery: (q: string) => void;
   layout: "grid" | "list";
   setLayout: (l: "grid" | "list") => void;
+  sort: SortSpec;
+  onSortKey: (key: SortKey) => void;
+  onSortDir: () => void;
   onOpenFile: () => void;
   onRescan: () => void;
   scanning: boolean;
@@ -17,6 +23,9 @@ export default function Toolbar({
   setQuery,
   layout,
   setLayout,
+  sort,
+  onSortKey,
+  onSortDir,
   onOpenFile,
   onRescan,
   scanning,
@@ -44,6 +53,22 @@ export default function Toolbar({
       </div>
 
       <div className="toolbar-actions">
+        <div className="sort" title="정렬 기준">
+          <select value={sort.key} onChange={(e) => onSortKey(e.target.value as SortKey)}>
+            {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+              <option key={k} value={k}>
+                {SORT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+          <button
+            className="sort-dir"
+            title={sort.asc ? "오름차순 (누르면 내림차순)" : "내림차순 (누르면 오름차순)"}
+            onClick={onSortDir}
+          >
+            {sort.asc ? "↑" : "↓"}
+          </button>
+        </div>
         <div className="seg">
           <button
             className={layout === "grid" ? "on" : ""}

@@ -15,6 +15,8 @@ export interface ListArgs {
   // snake_case key like `folder_path` would silently not bind.
   dir?: string | null;
   query?: string | null;
+  sort?: string | null;
+  ascending?: boolean;
   [key: string]: unknown;
 }
 export const listFiles = (args: ListArgs) => invoke<FileEntry[]>("list_files", args);

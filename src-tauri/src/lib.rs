@@ -471,11 +471,22 @@ fn list_files(
     tag: Option<String>,
     dir: Option<String>,
     query: Option<String>,
+    sort: Option<String>,
+    ascending: Option<bool>,
 ) -> CmdResult<Vec<FileEntry>> {
     let conn = state.db.lock().unwrap();
     let q = query.as_deref().map(str::trim).filter(|s| !s.is_empty());
     let folder = dir.as_deref().filter(|s| !s.is_empty());
-    db::list_files(&conn, &view, tag.as_deref(), folder, q).map_err(|e| e.to_string())
+    db::list_files(
+        &conn,
+        &view,
+        tag.as_deref(),
+        folder,
+        q,
+        sort.as_deref(),
+        ascending.unwrap_or(false),
+    )
+    .map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]

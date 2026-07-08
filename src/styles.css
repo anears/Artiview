@@ -299,6 +299,38 @@ button {
   margin-left: auto;
 }
 
+.sort {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sort select {
+  border: none;
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  padding: 7px 6px 7px 10px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.sort .sort-dir {
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-dim);
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.sort .sort-dir:hover,
+.sort select:hover {
+  background: var(--bg-elev2);
+}
+
 .seg {
   display: flex;
   border: 1px solid var(--border);

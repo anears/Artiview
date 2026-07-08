@@ -8,7 +8,7 @@ import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
 import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
-import type { DirCount, FileEntry, Folder, Nav, TagCount } from "./types";
+import type { DirCount, FileEntry, Folder, Nav, SortKey, SortSpec, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
 import "./styles.css";
@@ -18,6 +18,9 @@ function App() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounced(query, 200);
   const [layout, setLayout] = useState<"grid" | "list">("grid");
+  // null = the view's own default order (recent → last opened, others →
+  // modified). Set once the user picks a sort, and then applies everywhere.
+  const [sort, setSort] = useState<SortSpec | null>(null);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -53,8 +56,11 @@ function App() {
   }, []);
 
   const argsFor = useCallback(
-    (n: Nav, q: string): api.ListArgs => {
-      const base = { query: q.trim() || null };
+    (n: Nav, q: string, s: SortSpec | null): api.ListArgs => {
+      const base = {
+        query: q.trim() || null,
+        ...(s ? { sort: s.key, ascending: s.asc } : {}),
+      };
       switch (n.kind) {
         case "recent":
           return { view: "recent", ...base };
@@ -73,7 +79,7 @@ function App() {
 
   const refreshFiles = useCallback(async () => {
     try {
-      const next = await api.listFiles(argsFor(nav, debouncedQuery));
+      const next = await api.listFiles(argsFor(nav, debouncedQuery, sort));
       setFiles(next);
       // Keep the open viewer's entry in sync — e.g. a rescan just cleared its
       // missing flag or re-indexed it. Absence just means it fell out of the
@@ -82,7 +88,7 @@ function App() {
     } catch (e) {
       fail(e);
     }
-  }, [nav, debouncedQuery, argsFor]);
+  }, [nav, debouncedQuery, sort, argsFor]);
 
   useEffect(() => {
     refreshSidebar();
@@ -240,6 +246,20 @@ function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [openFile, tagEditFile, remoteModalOpen, authHost]);
 
+  // What the toolbar shows while sort is still the view default.
+  const effectiveSort: SortSpec = useMemo(
+    () =>
+      sort ?? (nav.kind === "recent" ? { key: "opened", asc: false } : { key: "modified", asc: false }),
+    [sort, nav.kind],
+  );
+
+  const changeSortKey = (key: SortKey) => {
+    // Names read naturally ascending; dates and sizes newest/largest first.
+    setSort({ key, asc: key === "name" });
+  };
+
+  const toggleSortDir = () => setSort({ ...effectiveSort, asc: !effectiveSort.asc });
+
   const title = useMemo(() => {
     switch (nav.kind) {
       case "recent":
@@ -279,6 +299,9 @@ function App() {
           setQuery={setQuery}
           layout={layout}
           setLayout={setLayout}
+          sort={effectiveSort}
+          onSortKey={changeSortKey}
+          onSortDir={toggleSortDir}
           onOpenFile={openFilePicker}
           onRescan={rescan}
           scanning={scanning}

@@ -230,12 +230,16 @@ pub fn folder_file_stats(
 
 /// Generic listing with an optional view filter, tag, folder and search query.
 /// `folder_path` filters to files anywhere beneath that directory (recursive).
+/// `sort` is a whitelisted key (name/modified/created/size/opened); None keeps
+/// the view's default order (recent → last_opened, otherwise modified).
 pub fn list_files(
     conn: &Connection,
     view: &str,
     tag: Option<&str>,
     folder_path: Option<&str>,
     query: Option<&str>,
+    sort: Option<&str>,
+    ascending: bool,
 ) -> rusqlite::Result<Vec<FileEntry>> {
     let mut sql = String::from("SELECT DISTINCT f.id FROM files f");
     // Missing files are intentionally NOT filtered out here: we surface them
@@ -283,12 +287,22 @@ pub fn list_files(
         sql.push_str(&wheres.join(" AND "));
     }
 
-    let order = match view {
-        "recent" => " ORDER BY f.last_opened DESC",
-        "favorites" => " ORDER BY f.modified DESC",
-        _ => " ORDER BY f.modified DESC",
+    let dir = if ascending { "ASC" } else { "DESC" };
+    let order = match sort {
+        // Same title → heading → filename fallback the UI uses for display names.
+        Some("name") => format!(
+            " ORDER BY COALESCE(NULLIF(TRIM(f.title),''), NULLIF(TRIM(f.heading),''), f.name) COLLATE NOCASE {dir}, f.id"
+        ),
+        Some("size") => format!(" ORDER BY f.size {dir}, f.id"),
+        Some("created") => format!(" ORDER BY f.created {dir}, f.id"),
+        Some("opened") => format!(" ORDER BY f.last_opened IS NULL, f.last_opened {dir}, f.id"),
+        Some("modified") => format!(" ORDER BY f.modified {dir}, f.id"),
+        _ => match view {
+            "recent" => " ORDER BY f.last_opened DESC".to_string(),
+            _ => " ORDER BY f.modified DESC".to_string(),
+        },
     };
-    sql.push_str(order);
+    sql.push_str(&order);
     sql.push_str(" LIMIT 2000");
 
     let bind_refs: Vec<&dyn rusqlite::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
@@ -300,7 +314,7 @@ pub fn list_files(
         rows
     };
 
-    load_entries(conn, &ids, order)
+    load_entries(conn, &ids, &order)
 }
 
 pub fn get_file(conn: &Connection, id: i64) -> rusqlite::Result<Option<FileEntry>> {
@@ -532,5 +546,81 @@ fn to_fts_query(q: &str) -> Option<String> {
         None
     } else {
         Some(terms.join(" "))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        init(&conn).unwrap();
+        // (path, name, title, heading, size, modified, created, last_opened)
+        let rows: Vec<(&str, &str, Option<&str>, Option<&str>, i64, i64, i64, Option<i64>)> = vec![
+            ("/a/banana.html", "banana.html", Some("Banana"), None, 300, 30, 3, Some(100)),
+            ("/a/apple.html", "apple.html", None, Some("apple pie"), 100, 10, 1, None),
+            ("/a/cherry.html", "cherry.html", Some("  "), None, 200, 20, 2, Some(50)),
+        ];
+        for (path, name, title, heading, size, modified, created, opened) in rows {
+            conn.execute(
+                "INSERT INTO files (path, name, title, heading, size, modified, created, last_opened)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                params![path, name, title, heading, size, modified, created, opened],
+            )
+            .unwrap();
+        }
+        conn
+    }
+
+    fn names(entries: &[FileEntry]) -> Vec<&str> {
+        entries.iter().map(|e| e.name.as_str()).collect()
+    }
+
+    fn list(conn: &Connection, sort: Option<&str>, asc: bool) -> Vec<FileEntry> {
+        list_files(conn, "all", None, None, None, sort, asc).unwrap()
+    }
+
+    #[test]
+    fn sort_default_is_modified_desc() {
+        let conn = test_db();
+        assert_eq!(names(&list(&conn, None, false)), ["banana.html", "cherry.html", "apple.html"]);
+    }
+
+    #[test]
+    fn sort_by_display_name() {
+        let conn = test_db();
+        // Display name falls back title → heading → filename: "apple pie"
+        // (heading), "Banana" (title), "cherry.html" (blank title ignored).
+        assert_eq!(names(&list(&conn, Some("name"), true)), ["apple.html", "banana.html", "cherry.html"]);
+        assert_eq!(names(&list(&conn, Some("name"), false)), ["cherry.html", "banana.html", "apple.html"]);
+    }
+
+    #[test]
+    fn sort_by_size_and_created() {
+        let conn = test_db();
+        assert_eq!(names(&list(&conn, Some("size"), true)), ["apple.html", "cherry.html", "banana.html"]);
+        assert_eq!(names(&list(&conn, Some("created"), false)), ["banana.html", "cherry.html", "apple.html"]);
+    }
+
+    #[test]
+    fn sort_by_opened_puts_never_opened_last() {
+        let conn = test_db();
+        assert_eq!(names(&list(&conn, Some("opened"), false)), ["banana.html", "cherry.html", "apple.html"]);
+        // Ascending still keeps never-opened files at the end.
+        assert_eq!(names(&list(&conn, Some("opened"), true)), ["cherry.html", "banana.html", "apple.html"]);
+    }
+
+    #[test]
+    fn recent_view_default_order_unchanged() {
+        let conn = test_db();
+        let entries = list_files(&conn, "recent", None, None, None, None, false).unwrap();
+        assert_eq!(names(&entries), ["banana.html", "cherry.html"]);
+    }
+
+    #[test]
+    fn unknown_sort_key_falls_back_to_default() {
+        let conn = test_db();
+        assert_eq!(names(&list(&conn, Some("evil; DROP"), true)), ["banana.html", "cherry.html", "apple.html"]);
     }
 }

@@ -1,3 +1,5 @@
+import { locale, t } from "./i18n";
+
 export function formatSize(bytes: number): string {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -18,14 +20,17 @@ export function formatTime(secs: number | null): string {
   const min = 60_000,
     hour = 3_600_000,
     day = 86_400_000;
-  if (diff < min) return "방금 전";
-  if (diff < hour) return `${Math.floor(diff / min)}분 전`;
-  if (diff < day) return `${Math.floor(diff / hour)}시간 전`;
-  if (diff < 7 * day) return `${Math.floor(diff / day)}일 전`;
+  if (diff < min) return t("justNow");
+  if (diff < hour) return t("minutesAgo")(Math.floor(diff / min));
+  if (diff < day) return t("hoursAgo")(Math.floor(diff / hour));
+  if (diff < 7 * day) return t("daysAgo")(Math.floor(diff / day));
   const d = new Date(ms);
-  const now = new Date();
-  const y = d.getFullYear() === now.getFullYear() ? "" : `${d.getFullYear()}. `;
-  return `${y}${d.getMonth() + 1}. ${d.getDate()}.`;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(locale, {
+    month: "short",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  });
 }
 
 /** Parent directory of an absolute path, for display. */

@@ -1,163 +1,166 @@
 # Artiview
 
-에이전트가 생성한 **HTML 결과물·발표자료와 Markdown 문서**를 한곳에 모아 보고 관리하는
-macOS 데스크톱 앱입니다. 브라우저로는 번거로운 **라이브러리 관리 · 전문 검색 · 썸네일 ·
-즐겨찾기·태그**를 제공하고, 로컬 폴더뿐 아니라 **SSH 서버의 원격 폴더**도 등록할 수 있습니다.
+**A local gallery for the HTML files your coding agents keep generating.**
 
----
+[한국어 README](README.ko.md)
 
-## 설치
+AI agents (Claude Code, Codex, custom pipelines…) leave a trail of HTML reports,
+presentations and Markdown docs all over your disk — and your servers. Artiview
+is a macOS desktop app that turns those folders into a browsable library:
+live-rendered thumbnails, full-text search, favorites, tags, and **SSH/SFTP
+remote folders** that work just like local ones. New files show up
+automatically — no manual refresh.
 
-1. [Releases](https://github.com/anears/Artiview/releases)에서 최신 `Artiview_x.y.z_aarch64.dmg`를 내려받습니다 (Apple Silicon).
-2. dmg를 열고 **Artiview.app을 Applications로 드래그**합니다.
-3. 서명되지 않은 앱이라 첫 실행 시 macOS가 차단할 수 있습니다 —
-   **우클릭 → 열기**, 또는 시스템 설정 → 개인정보 보호 및 보안에서 "그대로 열기"를 눌러주세요.
+<!-- TODO: add a demo GIF here before launch:
+![Artiview demo](docs/demo.gif)
+A good demo: an agent writes report.html into a watched folder → the card pops
+into the grid → click → instant viewer with ⌘F find.
+-->
 
-## 시작하기
+- **Nothing is ever modified or deleted.** Artiview only indexes; your files are
+  untouched. "Remove from library" only deletes the index entry.
+- **Local-first.** Everything lives in a local SQLite database. SSH passwords
+  are never written to disk.
+- **Untrusted HTML is sandboxed.** Viewer and thumbnail iframes run without
+  `allow-same-origin`, so a malicious document can't reach the app or its IPC.
 
-앱을 처음 열면 라이브러리가 비어 있습니다. 두 가지 방법으로 문서를 추가하세요.
+## Install
 
-| 방법 | 위치 | 설명 |
+1. Download the latest `Artiview_x.y.z_aarch64.dmg` from
+   [Releases](https://github.com/anears/Artiview/releases) (Apple Silicon).
+2. Open the dmg and **drag Artiview.app into Applications**.
+3. The app is not code-signed yet, so macOS may block the first launch —
+   **right-click → Open**, or allow it under System Settings → Privacy & Security.
+
+The UI is in English by default and switches to Korean automatically when your
+system language is Korean. Light and dark themes follow the system, and both
+language and theme can be overridden in **⚙ Settings** (bottom of the sidebar).
+
+## Getting started
+
+The library starts empty. Add documents in three ways:
+
+| Action | Where | What it does |
 |---|---|---|
-| **폴더 추가** | 사이드바 "폴더" 옆 **+** | 결과물이 쌓이는 폴더를 등록하면 하위 `.html`/`.htm`/`.md` 파일을 재귀로 스캔·색인합니다. |
-| **원격 폴더 추가** | 사이드바 "폴더" 옆 **🌐** | SSH 서버의 폴더를 등록합니다 (아래 [원격 폴더](#원격-폴더-sshsftp) 참고). |
-| **파일 하나 열기** | 우측 상단 **파일 열기** | 등록 폴더 밖의 파일도 바로 보고, 자동으로 라이브러리(최근 목록)에 기록됩니다. |
+| **Add folder** | **+** next to "Folders" in the sidebar | Registers a folder; its `.html`/`.htm`/`.md` files are scanned recursively and indexed. |
+| **Add remote folder** | **🌐** next to "Folders" | Registers a folder on an SSH server (see [Remote folders](#remote-folders-sshsftp)). |
+| **Open a file** | **Open File**, top right | View any single file; it's recorded in the library (Recent) automatically. |
 
-등록한 폴더에 파일이 새로 생기거나 바뀌면 **새로고침 ↻** 버튼으로 변경분만 다시 스캔합니다.
+Registered **local folders are watched**: when an agent drops a new file or
+rewrites an old one, the library updates by itself within a couple of seconds.
+Remote folders re-scan on the **↻ Refresh** button (incremental — only changes
+are re-indexed).
 
----
+## Features
 
-## 기능 안내
+### Library
 
-### 라이브러리 탐색
+- **All Files / Recent / Favorites** views, plus a **folder tree** of every
+  registered root — click a subfolder to filter to it.
+- **Grid or list** layout. Grid thumbnails are the *actual document* rendered
+  in a scaled-down sandboxed frame — always current, never a stale screenshot.
+- **Sort** by modified/name/size/created/last-opened, ascending or descending.
+- Display names resolve as `<title>` → first heading → filename.
 
-- **전체 / 최근 본 파일 / 즐겨찾기** — 사이드바 상단에서 전환합니다.
-- **폴더 트리** — 등록 폴더의 하위 구조가 트리로 표시되고, 폴더를 클릭하면 그 아래 파일만 필터링됩니다.
-- **그리드 / 목록 보기** — 우측 상단 ▦/☰ 버튼으로 전환합니다. 그리드는 각 HTML을
-  실제로 축소 렌더링한 썸네일을 보여줍니다 (스크린샷이 아니라 항상 최신 내용).
-- **정렬** — 우측 상단 정렬 메뉴에서 **수정일 · 이름 · 크기 · 생성일 · 열어본 날짜**
-  기준을 고르고, 옆의 ↑/↓ 버튼으로 방향을 바꿉니다. 기본은 최신 수정순이고
-  (최근 본 파일에서는 열람순), 한 번 고르면 모든 화면에 적용됩니다.
-- 각 파일의 표시 이름은 `<title>` → 첫 헤딩 → 파일명 순으로 자동 결정됩니다.
+### Search
 
-### 검색
+- The library search box matches file names **and the full text of every
+  document** (SQLite FTS5 index over title/headings/body).
+- Inside the viewer, `⌘/Ctrl+F` finds text in the current document with
+  highlights; `Enter`/`Shift+Enter` steps through matches, `Esc` closes.
 
-- **라이브러리 검색** — 상단 검색창은 파일명뿐 아니라 **HTML·Markdown 본문 텍스트까지**
-  검색합니다 (SQLite FTS5 전문 색인).
-- **문서 내 검색** — 뷰어에서 `⌘/Ctrl+F`를 누르면 현재 문서 안의 텍스트를 찾아
-  하이라이트합니다. `Enter`/`Shift+Enter`로 일치 항목을 오가고, `Esc`로 닫습니다.
+### Viewer
 
-### 뷰어
+Click any file to open the built-in viewer: find (`⌘/Ctrl+F`), tags,
+favorite ★, remove-from-library 🗑 (never deletes the file), and open-in-browser
+for local files. Markdown renders GitHub-style with syntax highlighting, and
+relative images/links resolve against the file's own folder — including on
+remote servers.
 
-파일을 클릭하면 내장 뷰어가 열립니다.
+### Remote folders (SSH/SFTP)
 
-- **⌕ 찾기** — 문서 내 검색 (`⌘/Ctrl+F`)
-- **# 태그** — 태그 편집
-- **★** — 즐겨찾기 토글
-- **🗑 제거** — 라이브러리에서 항목 제거 (원본 파일은 절대 삭제되지 않습니다)
-- **브라우저로 ↗** — 기본 브라우저로 열기 (로컬 파일만)
-- `Esc` — 뷰어 닫기
+Use folders on any SSH-reachable machine as if they were local:
 
-Markdown은 GitHub 스타일 + 코드 하이라이트로 렌더되고, 문서 안의 상대경로 이미지도
-해당 폴더 기준으로 표시됩니다.
+1. Click **🌐** next to "Folders".
+2. **Connection** — `user@host`, `user@host:port`, or an alias from
+   `~/.ssh/config`.
+3. **Remote path** — an absolute path; subdirectories are suggested as you
+   type (`Tab` completes like a shell, `↑`/`↓` selects).
+4. **Authentication** — *Auto* (ssh-agent → config `IdentityFile` → default
+   keys), a *key file* (`.pem`), or a *password*.
 
-### 즐겨찾기와 태그
+Search, thumbnails, the viewer and tags all work identically; relative
+images/CSS inside remote HTML are proxied over SFTP. Passwords are held **in
+memory only** for the current run — after a restart you'll be prompted again.
 
-- 카드/목록의 **★** 로 즐겨찾기에 추가합니다.
-- 뷰어의 **# 태그**로 태그를 붙이면 사이드바 "태그" 섹션에서 바로 필터링할 수 있습니다.
+### Missing files
 
-### 원격 폴더 (SSH/SFTP)
+Moved/renamed/deleted files are badged, never auto-purged — tags and favorites
+survive. An unplugged drive or unreachable server marks its entries missing;
+everything recovers on the next scan after it comes back.
 
-사내 서버 등 SSH로 접속하는 곳의 폴더를 로컬처럼 쓸 수 있습니다.
+## Keyboard shortcuts
 
-1. 사이드바 "폴더" 옆 **🌐** 버튼을 누릅니다.
-2. **접속 대상** 입력 — `user@host`, `user@host:포트`, 또는 `~/.ssh/config`에 정의한 별칭.
-3. **원격 경로** 입력 — 절대 경로(`/home/user/reports`).
-   입력하는 동안 **하위 폴더가 자동으로 제안**됩니다: `Tab`으로 완성(셸처럼 공통
-   접두사까지), `↑`/`↓`로 선택, `Enter` 또는 클릭으로 확정.
-4. **인증** 선택:
-   - **자동** — ssh-agent, `~/.ssh/config`의 IdentityFile, 기본 키(`id_ed25519` 등)를 순서대로 시도
-   - **키 파일** — `.pem` 등 키 파일을 직접 선택
-   - **비밀번호** — 서버 비밀번호 입력
-5. **추가**를 누르면 접속·스캔이 시작됩니다.
-
-등록 후에는 검색·썸네일·뷰어·태그가 로컬 폴더와 동일하게 동작하고, 원격 HTML 안의
-상대경로 이미지·CSS도 정상 표시됩니다. 사이드바에서 원격 폴더는 🌐 아이콘과
-`@호스트` 표시로 구분됩니다.
-
-**비밀번호에 대해**: 비밀번호는 **디스크에 저장되지 않고** 앱 실행 중에만 기억됩니다.
-앱을 재시작한 뒤 원격 문서를 열면 🔒 카드가 뜨고, "비밀번호 입력"을 누르면 다시
-접속됩니다. 새로고침(재스캔) 중 비밀번호가 필요한 서버가 있으면 자동으로 입력창이 뜹니다.
-
-### 없어진 파일 처리
-
-파일이 이동·이름변경·삭제되면:
-
-- 목록에서 **없음** 배지, 그리드에서 ⚠ 카드로 표시됩니다 (자동 삭제되지 않음 — 태그·즐겨찾기 유지).
-- 뷰어에서 **다시 시도**(일시적 오류), **라이브러리에서 제거**(정리),
-  또는 파일을 제자리에 복구한 뒤 **새로고침** 하면 원래대로 돌아옵니다.
-- 외장 드라이브나 원격 서버가 잠시 연결이 끊겨도 라이브러리는 보존되고,
-  다시 연결되면 새로고침으로 복구됩니다.
-
----
-
-## 키보드 단축키
-
-| 키 | 동작 |
+| Key | Action |
 |---|---|
-| `⌘/Ctrl + F` | (뷰어) 문서 내 검색 열기 |
-| `Enter` / `Shift+Enter` | 검색 일치 항목 다음/이전 |
-| `Esc` | 검색 바 → 모달 → 뷰어 순으로 닫기 |
-| `Tab` | (원격 경로 입력) 폴더 자동완성 |
+| `⌘/Ctrl + F` | Find in the open document |
+| `Enter` / `Shift+Enter` | Next / previous match |
+| `Esc` | Close find bar → modal → viewer |
+| `Tab` | Complete remote path (in the remote folder dialog) |
 
-## 자주 묻는 질문
+## FAQ
 
-**Q. 원본 파일이 수정되거나 삭제되나요?**
-아니요. Artiview는 원본 파일을 절대 수정·삭제하지 않습니다. "라이브러리에서 제거"도
-색인 항목만 지웁니다.
+**Does Artiview ever modify or delete my files?**
+No. Never. It only reads them; all remove actions affect the index only.
 
-**Q. 데이터는 어디에 저장되나요?**
-등록 폴더·색인·최근·즐겨찾기·태그는 macOS 앱 데이터 디렉터리의 `library.db`(SQLite)에
-저장됩니다. SSH 비밀번호는 어디에도 저장되지 않습니다.
+**Where is my data stored?**
+Folders, index, recents, favorites and tags live in `library.db` (SQLite) in
+the macOS app-data directory. SSH passwords are not stored anywhere.
 
-**Q. 원격 폴더가 "인증 실패"라고 나와요.**
-터미널에서 `ssh 대상`으로 접속되는지 먼저 확인하세요. ssh-agent에 키가 등록되어
-있거나(`ssh-add -l`), `~/.ssh/config`에 IdentityFile이 지정되어 있으면 "자동"으로
-접속됩니다. `.pem` 파일은 권한이 `600`이어야 합니다.
+**Remote folder says "authentication failed".**
+Check that `ssh <target>` works in a terminal first. If your key is in
+ssh-agent (`ssh-add -l`) or configured via `IdentityFile`, *Auto* will find it.
+Key files need `600` permissions.
 
-**Q. 스캔이 일부 파일을 건너뛰어요.**
-원격 스캔은 안전을 위해 폴더 깊이 16단계 / 항목 2만 개 / 파일당 50MB로 제한됩니다.
+**The scan skipped some files.**
+Remote scans are capped for safety: depth 16, 20k entries, 50MB per file.
 
-## 알려진 제한
+## Known limitations
 
-- macOS Apple Silicon 빌드만 제공됩니다.
-- SSH host key를 아직 `known_hosts`와 대조하지 않습니다 — 신뢰할 수 있는 내부망에서 사용하세요.
-- SSH 비밀번호는 앱 재시작 시 다시 입력해야 합니다 (Keychain 연동 예정).
-- 파일 접근 범위는 `tauri.conf.json`의 `assetProtocol.scope`로 제한됩니다
-  (기본: 홈 디렉터리 및 `/Volumes`).
+- macOS Apple Silicon builds only (for now — the code is portable Tauri/Rust).
+- SSH host keys are not yet checked against `known_hosts`; use on networks you
+  trust.
+- SSH passwords must be re-entered after a restart (Keychain support planned).
+- File access is scoped by `assetProtocol.scope` in `tauri.conf.json`
+  (defaults: home directory and `/Volumes`).
 
----
-
-## 개발자용
+## Development
 
 ```bash
 npm install
-npm run tauri dev     # 개발 실행
-npm run tauri build   # 배포용 .app / .dmg 빌드
+npm run tauri dev     # run in development
+npm run tauri build   # build a release .app / .dmg
 ```
 
 ```
-src-tauri/           Rust 백엔드 (Tauri 2)
-  src/db.rs          SQLite 스키마 + FTS5 + 쿼리
-  src/html.rs        <title>/헤딩/본문 텍스트 추출
-  src/remote.rs      SSH/SFTP 연결 풀 + remote:// 프로토콜 서버
-  src/lib.rs         폴더 스캔 + Tauri 커맨드
-src/                 React 프론트엔드
-  api.ts             invoke 래퍼 + 로컬/원격 URL 변환
-  markdown.ts        markdown-it + highlight.js 렌더 + iframe 소스 훅
-  components/        Sidebar · Toolbar · FileGrid · FileCard · Viewer · 모달들
+src-tauri/           Rust backend (Tauri 2)
+  src/db.rs          SQLite schema + FTS5 + queries
+  src/html.rs        <title>/heading/body-text extraction
+  src/remote.rs      SSH/SFTP connection pool + remote:// protocol server
+  src/watch.rs       native file watching → debounced incremental rescans
+  src/lib.rs         folder scanning + Tauri commands
+src/                 React frontend
+  api.ts             invoke wrappers + local/remote URL conversion
+  i18n.ts            UI strings (English default, Korean via system language)
+  markdown.ts        markdown-it + highlight.js rendering + iframe source hook
+  components/        Sidebar · Toolbar · FileGrid · FileCard · Viewer · modals
 ```
 
-뷰어·썸네일 iframe은 `allow-same-origin` 없이 샌드박스되어 신뢰할 수 없는 문서가 앱
-권한에 접근할 수 없습니다. 원격 콘텐츠는 커스텀 `remote://` 프로토콜이 SFTP를
-프록시하며, asset protocol과 동일한 CORS 정책을 따릅니다.
+Viewer/thumbnail iframes are sandboxed without `allow-same-origin`, so
+untrusted documents can't touch the app's privileges. Remote content is served
+through a custom `remote://` protocol that proxies SFTP with the same CORS
+posture as the asset protocol.
+
+## License
+
+[MIT](LICENSE)

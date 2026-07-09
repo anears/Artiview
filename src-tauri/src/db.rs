@@ -138,6 +138,12 @@ pub fn add_folder(conn: &Connection, path: &str, now: i64) -> rusqlite::Result<i
     Ok(id)
 }
 
+/// Root path of a registered folder, if it is still registered.
+pub fn folder_path(conn: &Connection, id: i64) -> rusqlite::Result<Option<String>> {
+    conn.query_row("SELECT path FROM folders WHERE id = ?1", [id], |r| r.get(0))
+        .optional()
+}
+
 pub fn remove_folder(conn: &Connection, id: i64) -> rusqlite::Result<()> {
     // Delete only files that belong exclusively to this folder.
     let ids: Vec<i64> = {

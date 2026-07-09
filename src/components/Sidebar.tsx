@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isRemotePath, SFTP_PREFIX } from "../api";
 import { buildFolderTree } from "../foldertree";
+import { t } from "../i18n";
 import type { DirCount, Folder, FolderNode, Nav, TagCount } from "../types";
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
   onAddFolder: () => void;
   onAddRemoteFolder: () => void;
   onRemoveFolder: (f: Folder) => void;
+  onOpenSettings: () => void;
 }
 
 export default function Sidebar({
@@ -23,6 +25,7 @@ export default function Sidebar({
   onAddFolder,
   onAddRemoteFolder,
   onRemoveFolder,
+  onOpenSettings,
 }: Props) {
   const tree = useMemo(() => buildFolderTree(folders, dirs), [folders, dirs]);
 
@@ -51,35 +54,35 @@ export default function Sidebar({
 
       <nav className="nav-group">
         <button className={`nav-item ${activeView("all") ? "active" : ""}`} onClick={() => setNav({ kind: "all" })}>
-          <span className="nav-ico">▦</span> 전체
+          <span className="nav-ico">▦</span> {t("navAll")}
         </button>
         <button
           className={`nav-item ${activeView("recent") ? "active" : ""}`}
           onClick={() => setNav({ kind: "recent" })}
         >
-          <span className="nav-ico">◷</span> 최근 본 파일
+          <span className="nav-ico">◷</span> {t("navRecent")}
         </button>
         <button
           className={`nav-item ${activeView("favorites") ? "active" : ""}`}
           onClick={() => setNav({ kind: "favorites" })}
         >
-          <span className="nav-ico">★</span> 즐겨찾기
+          <span className="nav-ico">★</span> {t("navFavorites")}
         </button>
       </nav>
 
       <div className="nav-section">
         <div className="nav-section-head">
-          <span>폴더</span>
+          <span>{t("sectionFolders")}</span>
           <span className="head-btns">
-            <button className="mini-btn" title="원격 폴더 추가 (SSH)" onClick={onAddRemoteFolder}>
+            <button className="mini-btn" title={t("addRemoteFolderTip")} onClick={onAddRemoteFolder}>
               🌐
             </button>
-            <button className="mini-btn" title="폴더 추가" onClick={onAddFolder}>
+            <button className="mini-btn" title={t("addFolderTip")} onClick={onAddFolder}>
               +
             </button>
           </span>
         </div>
-        {tree.length === 0 && <div className="nav-empty">등록된 폴더 없음</div>}
+        {tree.length === 0 && <div className="nav-empty">{t("noFolders")}</div>}
         {tree.map((root) => (
           <TreeNode
             key={root.path}
@@ -98,7 +101,7 @@ export default function Sidebar({
       {tags.length > 0 && (
         <div className="nav-section">
           <div className="nav-section-head">
-            <span>태그</span>
+            <span>{t("sectionTags")}</span>
           </div>
           {tags.map((t) => (
             <div
@@ -113,6 +116,12 @@ export default function Sidebar({
           ))}
         </div>
       )}
+
+      <div className="sidebar-foot">
+        <button className="nav-item" onClick={onOpenSettings} title={t("settings")}>
+          <span className="nav-ico">⚙</span> {t("settings")}
+        </button>
+      </div>
     </aside>
   );
 }
@@ -166,7 +175,7 @@ function TreeNode({ node, depth, nav, setNav, expanded, toggle, folders, onRemov
         {isRoot && (
           <button
             className="nav-remove"
-            title="폴더 제거"
+            title={t("removeFolderTip")}
             onClick={(e) => {
               e.stopPropagation();
               const f = folders.find((x) => x.id === node.rootId);

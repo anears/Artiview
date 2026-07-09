@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../i18n";
 
 interface Props {
   hostkey: string;
@@ -14,7 +15,7 @@ export default function PasswordModal({ hostkey, onSubmit, onCancel }: Props) {
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span>🔒 SSH 비밀번호</span>
+          <span>{t("passwordModalTitle")}</span>
           <button className="mini-btn" onClick={onCancel}>
             ×
           </button>
@@ -31,17 +32,17 @@ export default function PasswordModal({ hostkey, onSubmit, onCancel }: Props) {
               className="form-input"
               type="password"
               autoFocus
-              placeholder="앱 실행 중에만 기억되며 저장되지 않습니다"
+              placeholder={t("passwordPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onCancel}>
-              취소
+              {t("cancel")}
             </button>
             <button type="submit" className="btn primary" disabled={!password}>
-              확인
+              {t("ok")}
             </button>
           </div>
         </form>

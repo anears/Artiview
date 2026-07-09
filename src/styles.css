@@ -1,3 +1,7 @@
+/* Dark is the default palette; the light palette overrides it when theme.ts
+   stamps data-theme="light" on <html> (Settings: auto/light/dark). Surfaces
+   that sit on top of documents or accent/danger fills are theme-invariant and
+   stay hardcoded (white text on accent, thumbnail scrims, modal backdrop). */
 :root {
   --bg: #0f1115;
   --bg-elev: #161922;
@@ -13,7 +17,48 @@
   --danger: #ff6b6b;
   --radius: 10px;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --pill-bg: rgba(255, 255, 255, 0.05);
+  --hover-soft: rgba(255, 255, 255, 0.08);
+  --badge-md-bg: #2d4a36;
+  --badge-md-fg: #b7f0c8;
+  --toast-bg: #3a1c1f;
+  --toast-fg: #ffd9d9;
+  --stripe-missing-a: #2a2030;
+  --stripe-missing-b: #2d2230;
+  --stripe-auth-a: #202636;
+  --stripe-auth-b: #232940;
+  --scrollbar: #2c3343;
+  --scrollbar-hover: #3a4255;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f4f5f8;
+  --bg-elev: #ffffff;
+  --bg-elev2: #eceef4;
+  --border: #d7dbe4;
+  --border-soft: #e4e7ee;
+  --text: #1d2433;
+  --text-dim: #5b6474;
+  --text-faint: #8b93a4;
+  --accent: #3e6ee0;
+  --accent-dim: #4a72e0;
+  --star: #d99b00;
+  --danger: #d64545;
+  --shadow: 0 8px 28px rgba(35, 45, 65, 0.16);
+  --pill-bg: rgba(20, 30, 50, 0.06);
+  --hover-soft: rgba(20, 30, 50, 0.08);
+  --badge-md-bg: #d9f2e0;
+  --badge-md-fg: #1c6b3a;
+  --toast-bg: #fdecec;
+  --toast-fg: #a32f2f;
+  --stripe-missing-a: #f1e5e8;
+  --stripe-missing-b: #ece0e3;
+  --stripe-auth-a: #e7ebf5;
+  --stripe-auth-b: #e1e6f2;
+  --scrollbar: #c4cad7;
+  --scrollbar-hover: #aab2c3;
+  color-scheme: light;
 }
 
 * {
@@ -144,7 +189,7 @@ button {
 .nav-count {
   font-size: 11px;
   color: var(--text-faint);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--pill-bg);
   padding: 1px 7px;
   border-radius: 10px;
 }
@@ -178,6 +223,12 @@ button {
 
 .nav-section {
   margin-top: 16px;
+}
+
+/* Pinned to the bottom of the sidebar (settings). */
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 .nav-section-head {
@@ -752,8 +803,8 @@ button {
 }
 
 .kind-badge.md {
-  background: #2d4a36;
-  color: #b7f0c8;
+  background: var(--badge-md-bg);
+  color: var(--badge-md-fg);
 }
 
 .vt-path {
@@ -840,7 +891,7 @@ button {
 
 .find-nav:hover:not(:disabled),
 .find-close:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover-soft);
   color: var(--text);
 }
 
@@ -1022,9 +1073,9 @@ button {
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: #3a1c1f;
+  background: var(--toast-bg);
   border: 1px solid var(--danger);
-  color: #ffd9d9;
+  color: var(--toast-fg);
   padding: 10px 16px;
   border-radius: 9px;
   font-size: 13px;
@@ -1056,10 +1107,10 @@ button {
   text-align: center;
   background: repeating-linear-gradient(
     -45deg,
-    #2a2030,
-    #2a2030 10px,
-    #2d2230 10px,
-    #2d2230 20px
+    var(--stripe-missing-a),
+    var(--stripe-missing-a) 10px,
+    var(--stripe-missing-b) 10px,
+    var(--stripe-missing-b) 20px
   );
   color: var(--text-dim);
 }
@@ -1092,10 +1143,10 @@ button {
 .thumb-auth {
   background: repeating-linear-gradient(
     -45deg,
-    #202636,
-    #202636 10px,
-    #232940 10px,
-    #232940 20px
+    var(--stripe-auth-a),
+    var(--stripe-auth-a) 10px,
+    var(--stripe-auth-b) 10px,
+    var(--stripe-auth-b) 20px
   );
 }
 
@@ -1209,7 +1260,7 @@ button {
   height: 11px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2c3343;
+  background: var(--scrollbar);
   border-radius: 6px;
   border: 3px solid var(--bg);
 }
@@ -1217,5 +1268,5 @@ button {
   border-color: var(--bg-elev);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a4255;
+  background: var(--scrollbar-hover);
 }

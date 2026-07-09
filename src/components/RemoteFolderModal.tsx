@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "../api";
 import { useDebounced } from "../hooks";
+import { t } from "../i18n";
 import type { ScanResult } from "../types";
 
 type AuthMode = "auto" | "key" | "password";
@@ -130,7 +131,7 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
       const msg = String(e);
       if (msg.startsWith("PASSWORD_REQUIRED:")) {
         setNeedPw(true);
-        setError("이 서버는 비밀번호가 필요합니다. 입력 후 다시 시도하세요.");
+        setError(t("remoteNeedsPassword"));
       } else {
         setError(msg);
       }
@@ -143,12 +144,12 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span>🌐 원격 폴더 추가 (SSH)</span>
+          <span>{t("remoteModalTitle")}</span>
           <button className="mini-btn" onClick={onClose}>
             ×
           </button>
         </div>
-        <div className="modal-sub">서버의 HTML·Markdown 폴더를 SFTP로 등록합니다</div>
+        <div className="modal-sub">{t("remoteModalSub")}</div>
 
         <form
           onSubmit={(e) => {
@@ -157,18 +158,18 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
           }}
         >
           <div className="form-field">
-            <label className="form-label">접속 대상</label>
+            <label className="form-label">{t("remoteTarget")}</label>
             <input
               className="form-input"
               autoFocus
-              placeholder="user@host, user@host:포트 또는 ~/.ssh/config 별칭"
+              placeholder={t("remoteTargetPlaceholder")}
               value={target}
               onChange={(e) => setTarget(e.target.value)}
             />
           </div>
 
           <div className="form-field">
-            <label className="form-label">원격 경로</label>
+            <label className="form-label">{t("remotePath")}</label>
             <div className="suggest-wrap">
               <input
                 className="form-input"
@@ -198,17 +199,17 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
                 </ul>
               )}
             </div>
-            <div className="form-hint">하위 폴더가 제안됩니다 — Tab 완성, ↑↓ 선택</div>
+            <div className="form-hint">{t("remotePathHint")}</div>
           </div>
 
           <div className="form-field">
-            <label className="form-label">인증</label>
+            <label className="form-label">{t("remoteAuth")}</label>
             <div className="radio-row">
               {(
                 [
-                  ["auto", "자동 (에이전트·기본 키)"],
-                  ["key", "키 파일 (.pem)"],
-                  ["password", "비밀번호"],
+                  ["auto", t("authAuto")],
+                  ["key", t("authKey")],
+                  ["password", t("authPassword")],
                 ] as [AuthMode, string][]
               ).map(([mode, label]) => (
                 <label key={mode} className="radio-opt">
@@ -231,7 +232,7 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
                 className="btn"
                 onClick={async () => setKeyPath((await api.pickKeyFile()) ?? keyPath)}
               >
-                키 파일 선택…
+                {t("chooseKeyFile")}
               </button>
               {keyPath && <div className="form-hint">{keyPath}</div>}
             </div>
@@ -239,11 +240,11 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
 
           {askPw && (
             <div className="form-field">
-              <label className="form-label">비밀번호</label>
+              <label className="form-label">{t("authPassword")}</label>
               <input
                 className="form-input"
                 type="password"
-                placeholder="앱 실행 중에만 기억되며 저장되지 않습니다"
+                placeholder={t("passwordPlaceholder")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -254,10 +255,10 @@ export default function RemoteFolderModal({ onAdded, onClose }: Props) {
 
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose} disabled={busy}>
-              취소
+              {t("cancel")}
             </button>
             <button type="submit" className="btn primary" disabled={!ready || busy}>
-              {busy ? "접속 중…" : "추가"}
+              {busy ? t("connecting") : t("add")}
             </button>
           </div>
         </form>

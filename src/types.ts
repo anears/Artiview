@@ -56,18 +56,12 @@ export interface ScanResult {
 
 export type SortKey = "modified" | "name" | "size" | "created" | "opened";
 
+export const SORT_KEYS: SortKey[] = ["modified", "name", "size", "created", "opened"];
+
 export interface SortSpec {
   key: SortKey;
   asc: boolean;
 }
-
-export const SORT_LABELS: Record<SortKey, string> = {
-  modified: "수정일",
-  name: "이름",
-  size: "크기",
-  created: "생성일",
-  opened: "열어본 날짜",
-};
 
 export type NavKind = "all" | "recent" | "favorites" | "folder" | "tag";
 

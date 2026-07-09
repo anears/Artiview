@@ -1,13 +1,17 @@
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "./api";
 import FileGrid from "./components/FileGrid";
 import PasswordModal from "./components/PasswordModal";
 import RemoteFolderModal from "./components/RemoteFolderModal";
+import SettingsModal from "./components/SettingsModal";
 import Sidebar from "./components/Sidebar";
 import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
 import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
+import { t } from "./i18n";
+import { loadLayout, loadSort, saveLayout, saveSort } from "./settings";
 import type { DirCount, FileEntry, Folder, Nav, SortKey, SortSpec, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
@@ -17,10 +21,13 @@ function App() {
   const [nav, setNav] = useState<Nav>({ kind: "all" });
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounced(query, 200);
-  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  // Layout and sort are viewing habits — restored from the previous run.
+  const [layout, setLayout] = useState<"grid" | "list">(loadLayout);
   // null = the view's own default order (recent → last opened, others →
   // modified). Set once the user picks a sort, and then applies everywhere.
-  const [sort, setSort] = useState<SortSpec | null>(null);
+  const [sort, setSort] = useState<SortSpec | null>(loadSort);
+  useEffect(() => saveLayout(layout), [layout]);
+  useEffect(() => saveSort(sort), [sort]);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -31,6 +38,8 @@ function App() {
   const [tagEditFile, setTagEditFile] = useState<FileEntry | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Remote (SSH) state: the add-folder modal, a pending password request
   // (hostkey), and an epoch bumped on login so visible documents refetch.
@@ -98,6 +107,18 @@ function App() {
     refreshFiles();
   }, [refreshFiles]);
 
+  // The backend watches registered local folders and rescans on changes —
+  // refetch whenever it reports that the library moved under us.
+  useEffect(() => {
+    const unlisten = listen("library-changed", () => {
+      refreshSidebar();
+      refreshFiles();
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [refreshSidebar, refreshFiles]);
+
   // ---- mutations (optimistic where possible) ----
   const patchFile = (id: number, patch: Partial<FileEntry>) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
@@ -127,12 +148,7 @@ function App() {
   };
 
   const forgetFile = async (f: FileEntry) => {
-    if (
-      !confirm(
-        `'${displayName(f)}'을(를) 라이브러리에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`,
-      )
-    )
-      return;
+    if (!confirm(t("confirmForget")(displayName(f)))) return;
     // Optimistic: drop it from the list. The viewer only closes once the
     // delete lands, so a failure doesn't kick the user out of the document.
     setFiles((prev) => prev.filter((x) => x.id !== f.id));
@@ -173,7 +189,7 @@ function App() {
   };
 
   const removeFolder = async (f: Folder) => {
-    if (!confirm(`'${basename(f.path)}' 폴더를 목록에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`)) return;
+    if (!confirm(t("confirmRemoveFolder")(basename(f.path)))) return;
     try {
       await api.removeFolder(f.id);
       const root = f.path.replace(/\/+$/, "");
@@ -239,12 +255,13 @@ function App() {
       if (e.key !== "Escape") return;
       if (authHost) setAuthHost(null);
       else if (remoteModalOpen) setRemoteModalOpen(false);
+      else if (settingsOpen) setSettingsOpen(false);
       else if (tagEditFile) setTagEditFile(null);
       else if (openFile) setOpenFile(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openFile, tagEditFile, remoteModalOpen, authHost]);
+  }, [openFile, tagEditFile, remoteModalOpen, settingsOpen, authHost]);
 
   // What the toolbar shows while sort is still the view default.
   const effectiveSort: SortSpec = useMemo(
@@ -263,15 +280,15 @@ function App() {
   const title = useMemo(() => {
     switch (nav.kind) {
       case "recent":
-        return "최근 본 파일";
+        return t("navRecent");
       case "favorites":
-        return "즐겨찾기";
+        return t("navFavorites");
       case "folder":
-        return nav.folderPath ? basename(nav.folderPath) : "폴더";
+        return nav.folderPath ? basename(nav.folderPath) : t("titleFolder");
       case "tag":
         return `# ${nav.tag}`;
       default:
-        return "전체";
+        return t("navAll");
     }
   }, [nav, folders]);
 
@@ -289,6 +306,7 @@ function App() {
         onAddFolder={addFolder}
         onAddRemoteFolder={() => setRemoteModalOpen(true)}
         onRemoveFolder={removeFolder}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <main className="main">
@@ -311,24 +329,21 @@ function App() {
           {showOnboarding ? (
             <div className="onboarding">
               <div className="onboarding-card">
-                <h2>라이브러리가 비어 있어요</h2>
-                <p>
-                  에이전트 결과물이 쌓이는 폴더를 등록하면 HTML·Markdown 파일을
-                  자동으로 스캔해 목록·검색·썸네일을 만들어 드립니다.
-                </p>
+                <h2>{t("onboardingTitle")}</h2>
+                <p>{t("onboardingBody")}</p>
                 <div className="onboarding-actions">
                   <button className="btn primary" onClick={addFolder}>
-                    폴더 추가
+                    {t("onboardingAddFolder")}
                   </button>
                   <button className="btn" onClick={openFilePicker}>
-                    파일 하나 열기
+                    {t("onboardingOpenFile")}
                   </button>
                 </div>
               </div>
             </div>
           ) : files.length === 0 ? (
             <div className="empty">
-              {debouncedQuery.trim() ? "검색 결과가 없습니다." : "표시할 파일이 없습니다."}
+              {debouncedQuery.trim() ? t("emptySearch") : t("emptyList")}
             </div>
           ) : (
             <FileGrid
@@ -360,7 +375,7 @@ function App() {
         <div className="modal-backdrop" onClick={() => setTagEditFile(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <span>태그 편집</span>
+              <span>{t("editTags")}</span>
               <button className="mini-btn" onClick={() => setTagEditFile(null)}>
                 ×
               </button>
@@ -376,6 +391,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
 
       {remoteModalOpen && (
         <RemoteFolderModal

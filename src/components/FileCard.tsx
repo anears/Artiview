@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../i18n";
 import type { FileEntry } from "../types";
 import { displayName, fileKind } from "../types";
 import { useDocSource } from "../markdown";
@@ -73,14 +74,14 @@ export default function FileCard({ file, authEpoch, onOpen, onToggleFavorite, on
         {needsAuth ? (
           <div className="thumb-missing thumb-auth">
             <div className="tm-ico">🔒</div>
-            <div className="tm-text">인증 필요 — 열면 비밀번호를 물어봅니다</div>
+            <div className="tm-text">{t("cardNeedsAuth")}</div>
           </div>
         ) : broken ? (
           <div className="thumb-missing">
             <div className="tm-ico">⚠</div>
-            <div className="tm-text">파일을 찾을 수 없음</div>
+            <div className="tm-text">{t("cardNotFound")}</div>
             <ForgetButton file={file} className="tm-remove" onForget={onForget}>
-              라이브러리에서 제거
+              {t("removeFromLibrary")}
             </ForgetButton>
           </div>
         ) : ready && (doc.src || doc.srcDoc) ? (
@@ -98,7 +99,7 @@ export default function FileCard({ file, authEpoch, onOpen, onToggleFavorite, on
         )}
         <button
           className={`star ${file.favorite ? "on" : ""}`}
-          title={file.favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+          title={file.favorite ? t("unfavoriteTip") : t("favoriteTip")}
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite(file);

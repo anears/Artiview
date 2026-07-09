@@ -1,6 +1,7 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openPath as openWithSystem } from "@tauri-apps/plugin-opener";
+import { t } from "./i18n";
 import type { DirCount, FileEntry, Folder, ScanResult, TagCount } from "./types";
 
 export const listFolders = () => invoke<Folder[]>("list_folders");
@@ -78,13 +79,13 @@ export const listRemoteDirs = (
   keyPath: string | null,
 ) => invoke<string[]>("list_remote_dirs", { target, path, auth, keyPath });
 
-/** Native picker for an SSH identity file (.pem 등) → absolute path (or null). */
+/** Native picker for an SSH identity file (.pem etc.) → absolute path (or null). */
 export async function pickKeyFile(): Promise<string | null> {
   const res = await openDialog({
     multiple: false,
     filters: [
-      { name: "SSH 키", extensions: ["pem", "key"] },
-      { name: "모든 파일", extensions: ["*"] },
+      { name: t("filterSshKeys"), extensions: ["pem", "key"] },
+      { name: t("filterAllFiles"), extensions: ["*"] },
     ],
   });
   return typeof res === "string" ? res : null;
@@ -100,7 +101,9 @@ export async function pickFolder(): Promise<string | null> {
 export async function pickHtmlFile(): Promise<string | null> {
   const res = await openDialog({
     multiple: false,
-    filters: [{ name: "문서", extensions: ["html", "htm", "md", "markdown", "mdown", "mkd"] }],
+    filters: [
+      { name: t("filterDocuments"), extensions: ["html", "htm", "md", "markdown", "mdown", "mkd"] },
+    ],
   });
   return typeof res === "string" ? res : null;
 }

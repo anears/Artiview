@@ -2,7 +2,8 @@
 name = "artiview"
 version = "0.2.0"
 description = "Artiview — a viewer & manager for agent-generated HTML & Markdown files"
-authors = ["you"]
+authors = ["Gitake Kwon <kwongitack@gmail.com>"]
+license = "MIT"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -25,6 +26,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
 walkdir = "2"
+# Auto-refresh: native file watching (FSEvents/inotify) over registered folders.
+notify = "8"
 # Remote (SSH/SFTP) folder support. vendored-openssl keeps builds hermetic.
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 ssh2-config = "0.5"

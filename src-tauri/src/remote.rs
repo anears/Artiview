@@ -119,10 +119,12 @@ impl RemoteError {
     pub fn to_command_error(&self) -> String {
         match self {
             RemoteError::PasswordRequired(hk) => format!("PASSWORD_REQUIRED:{hk}"),
-            RemoteError::Auth(hk) => format!("'{hk}' 인증에 실패했습니다 (키·에이전트 설정을 확인하세요)"),
-            RemoteError::NotFound => "원격 경로를 찾을 수 없습니다".into(),
-            RemoteError::Unreachable(m) => format!("서버에 연결할 수 없습니다: {m}"),
-            RemoteError::Other(m) => format!("원격 작업 실패: {m}"),
+            RemoteError::Auth(hk) => {
+                format!("Authentication to '{hk}' failed (check your keys / ssh-agent)")
+            }
+            RemoteError::NotFound => "Remote path not found".into(),
+            RemoteError::Unreachable(m) => format!("Could not reach the server: {m}"),
+            RemoteError::Other(m) => format!("Remote operation failed: {m}"),
         }
     }
 }
@@ -214,7 +216,7 @@ impl Pool {
     fn connect_guarded(&self, hostkey: &str) -> Result<Conn, RemoteError> {
         if let Some(t) = self.down.lock().unwrap().get(hostkey) {
             if t.elapsed() < DOWN_COOLDOWN {
-                return Err(RemoteError::Unreachable("최근 연결에 실패했습니다".into()));
+                return Err(RemoteError::Unreachable("a recent connection attempt failed".into()));
             }
         }
         match self.connect(hostkey) {
@@ -250,13 +252,13 @@ impl Pool {
             .map(str::to_string)
             .or_else(|| params.as_ref().and_then(|p| p.user.clone()))
             .or_else(|| std::env::var("USER").ok())
-            .ok_or_else(|| RemoteError::Other("접속할 사용자 이름을 알 수 없습니다".into()))?;
+            .ok_or_else(|| RemoteError::Other("Could not determine the username to connect with".into()))?;
 
         let addr = (host.as_str(), port)
             .to_socket_addrs()
             .map_err(|e| RemoteError::Unreachable(e.to_string()))?
             .next()
-            .ok_or_else(|| RemoteError::Unreachable(format!("{host}의 주소를 찾을 수 없습니다")))?;
+            .ok_or_else(|| RemoteError::Unreachable(format!("could not resolve the address of {host}")))?;
         let tcp = TcpStream::connect_timeout(&addr, DIAL_TIMEOUT)
             .map_err(|e| RemoteError::Unreachable(e.to_string()))?;
 
@@ -433,7 +435,7 @@ pub fn serve(pool: &Pool, uri_path: &str, origin: Option<&str>) -> tauri::http::
         Ok(bytes) if bytes.len() as u64 > MAX_FILE_BYTES => respond(
             500,
             Some("text/plain"),
-            "파일이 너무 큽니다 (50MB 제한)".into(),
+            "File is too large (50MB limit)".into(),
             origin,
         ),
         Ok(bytes) => {

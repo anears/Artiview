@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 import type { FileEntry } from "../types";
 import { displayName } from "../types";
 import { formatSize, formatTime, parentDir } from "../util";
@@ -42,7 +43,7 @@ export default function FileGrid({
             </button>
             <div className="row-main">
               <div className="row-name">
-                {f.missing && <span className="missing-badge">없음</span>}
+                {f.missing && <span className="missing-badge">{t("missingBadge")}</span>}
                 {displayName(f)}
               </div>
               <div className="row-dir">{parentDir(f.path)}</div>

@@ -192,7 +192,7 @@ fn scan_remote_folder(
 ) -> Result<ScanResult, remote::RemoteError> {
     let db_err = |e: rusqlite::Error| remote::RemoteError::Other(e.to_string());
     let (hostkey, root) = remote::split_sftp_url(root_url)
-        .ok_or_else(|| remote::RemoteError::Other("잘못된 원격 경로".into()))?;
+        .ok_or_else(|| remote::RemoteError::Other("Invalid remote path".into()))?;
     let mut res = ScanResult::default();
     let stats = db::folder_file_stats(conn, folder_id).map_err(db_err)?;
 
@@ -285,7 +285,7 @@ fn list_folders(state: State<AppState>) -> CmdResult<Vec<Folder>> {
 #[tauri::command]
 fn add_folder(state: State<AppState>, path: String) -> CmdResult<ScanResult> {
     if !Path::new(&path).is_dir() {
-        return Err("선택한 경로가 폴더가 아닙니다".into());
+        return Err("The selected path is not a folder".into());
     }
     let conn = state.db.lock().unwrap();
     let now = now_secs();
@@ -311,13 +311,13 @@ fn add_remote_folder(
     let target = target.trim().to_string();
     let path = path.trim().trim_end_matches('/').to_string();
     if target.is_empty() || target.contains('/') || target.contains(char::is_whitespace) {
-        return Err("접속 대상을 확인하세요 (예: user@host, host:포트, config 별칭)".into());
+        return Err("Check the connection target (e.g. user@host, host:port, or an ssh config alias)".into());
     }
     if path.is_empty() {
-        return Err("원격 루트(/) 전체는 등록할 수 없습니다 — 하위 폴더를 지정하세요".into());
+        return Err("The remote root (/) cannot be registered — choose a subdirectory".into());
     }
     if !path.starts_with('/') {
-        return Err("원격 경로는 /로 시작하는 절대 경로여야 합니다".into());
+        return Err("The remote path must be an absolute path starting with /".into());
     }
     let url = format!("{}{}{}", remote::SFTP_PREFIX, target, path);
 
@@ -333,7 +333,7 @@ fn add_remote_folder(
     match state.remotes.with_sftp(&target, |sftp| remote::is_remote_dir(sftp, &path)) {
         Ok(true) => {}
         Ok(false) | Err(remote::RemoteError::NotFound) => {
-            return Err("선택한 경로가 폴더가 아닙니다".into());
+            return Err("The selected path is not a folder".into());
         }
         Err(e) => return Err(e.to_command_error()),
     }
@@ -362,10 +362,10 @@ fn list_remote_dirs(
 ) -> CmdResult<Vec<String>> {
     let target = target.trim().to_string();
     if target.is_empty() || target.contains('/') || target.contains(char::is_whitespace) {
-        return Err("잘못된 접속 대상".into());
+        return Err("Invalid connection target".into());
     }
     if !path.starts_with('/') {
-        return Err("절대 경로가 아닙니다".into());
+        return Err("Not an absolute path".into());
     }
     // Use the dialog's current auth choices for the connection; they are only
     // persisted to the DB when the folder is actually added.
@@ -519,7 +519,7 @@ fn get_file(state: State<AppState>, id: i64) -> CmdResult<Option<FileEntry>> {
 fn open_path(state: State<AppState>, path: String) -> CmdResult<FileEntry> {
     let p = Path::new(&path);
     if !p.is_file() {
-        return Err("파일을 찾을 수 없습니다".into());
+        return Err("File not found".into());
     }
     let conn = state.db.lock().unwrap();
     let now = now_secs();
@@ -531,7 +531,7 @@ fn open_path(state: State<AppState>, path: String) -> CmdResult<FileEntry> {
     db::record_open(&conn, id, now).map_err(|e| e.to_string())?;
     db::get_file(&conn, id)
         .map_err(|e| e.to_string())?
-        .ok_or_else(|| "파일 정보를 불러오지 못했습니다".into())
+        .ok_or_else(|| "Could not load the file's entry".into())
 }
 
 #[tauri::command]

@@ -8,6 +8,7 @@ import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
 import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
+import { t } from "./i18n";
 import type { DirCount, FileEntry, Folder, Nav, SortKey, SortSpec, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
@@ -127,12 +128,7 @@ function App() {
   };
 
   const forgetFile = async (f: FileEntry) => {
-    if (
-      !confirm(
-        `'${displayName(f)}'을(를) 라이브러리에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`,
-      )
-    )
-      return;
+    if (!confirm(t("confirmForget")(displayName(f)))) return;
     // Optimistic: drop it from the list. The viewer only closes once the
     // delete lands, so a failure doesn't kick the user out of the document.
     setFiles((prev) => prev.filter((x) => x.id !== f.id));
@@ -173,7 +169,7 @@ function App() {
   };
 
   const removeFolder = async (f: Folder) => {
-    if (!confirm(`'${basename(f.path)}' 폴더를 목록에서 제거할까요?\n(원본 파일은 삭제되지 않습니다)`)) return;
+    if (!confirm(t("confirmRemoveFolder")(basename(f.path)))) return;
     try {
       await api.removeFolder(f.id);
       const root = f.path.replace(/\/+$/, "");
@@ -263,15 +259,15 @@ function App() {
   const title = useMemo(() => {
     switch (nav.kind) {
       case "recent":
-        return "최근 본 파일";
+        return t("navRecent");
       case "favorites":
-        return "즐겨찾기";
+        return t("navFavorites");
       case "folder":
-        return nav.folderPath ? basename(nav.folderPath) : "폴더";
+        return nav.folderPath ? basename(nav.folderPath) : t("titleFolder");
       case "tag":
         return `# ${nav.tag}`;
       default:
-        return "전체";
+        return t("navAll");
     }
   }, [nav, folders]);
 
@@ -311,24 +307,21 @@ function App() {
           {showOnboarding ? (
             <div className="onboarding">
               <div className="onboarding-card">
-                <h2>라이브러리가 비어 있어요</h2>
-                <p>
-                  에이전트 결과물이 쌓이는 폴더를 등록하면 HTML·Markdown 파일을
-                  자동으로 스캔해 목록·검색·썸네일을 만들어 드립니다.
-                </p>
+                <h2>{t("onboardingTitle")}</h2>
+                <p>{t("onboardingBody")}</p>
                 <div className="onboarding-actions">
                   <button className="btn primary" onClick={addFolder}>
-                    폴더 추가
+                    {t("onboardingAddFolder")}
                   </button>
                   <button className="btn" onClick={openFilePicker}>
-                    파일 하나 열기
+                    {t("onboardingOpenFile")}
                   </button>
                 </div>
               </div>
             </div>
           ) : files.length === 0 ? (
             <div className="empty">
-              {debouncedQuery.trim() ? "검색 결과가 없습니다." : "표시할 파일이 없습니다."}
+              {debouncedQuery.trim() ? t("emptySearch") : t("emptyList")}
             </div>
           ) : (
             <FileGrid
@@ -360,7 +353,7 @@ function App() {
         <div className="modal-backdrop" onClick={() => setTagEditFile(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <span>태그 편집</span>
+              <span>{t("editTags")}</span>
               <button className="mini-btn" onClick={() => setTagEditFile(null)}>
                 ×
               </button>

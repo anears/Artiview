@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../i18n";
 import type { FileEntry } from "../types";
 
 /**
@@ -24,7 +25,7 @@ export default function ForgetButton({ file, className, onForget, children }: Pr
   return (
     <button
       className={className}
-      title="라이브러리에서 제거 (원본 파일은 삭제되지 않음)"
+      title={t("forgetTip")}
       onClick={(e) => {
         e.stopPropagation();
         onForget(file);

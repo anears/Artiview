@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isRemotePath, openInBrowser } from "../api";
 import { useDebounced } from "../hooks";
+import { t } from "../i18n";
 import { useDocSource } from "../markdown";
 import type { FileEntry } from "../types";
 import { displayName, fileKind } from "../types";
@@ -143,8 +144,8 @@ export default function Viewer({
   return (
     <div className="viewer">
       <header className="viewer-bar">
-        <button className="btn ghost" onClick={onClose} title="뒤로">
-          ‹ 뒤로
+        <button className="btn ghost" onClick={onClose} title={t("back")}>
+          ‹ {t("back")}
         </button>
         <div className="viewer-title" title={file.path}>
           <div className="vt-name">
@@ -163,28 +164,28 @@ export default function Viewer({
             className="btn ghost"
             onClick={openFind}
             disabled={broken}
-            title="문서 내 검색 (⌘/Ctrl+F)"
+            title={t("findTip")}
           >
-            ⌕ 찾기
+            ⌕ {t("find")}
           </button>
-          <button className="btn ghost" onClick={() => onEditTags(file)} title="태그 편집">
-            # 태그
+          <button className="btn ghost" onClick={() => onEditTags(file)} title={t("editTagsTip")}>
+            # {t("tags")}
           </button>
           <button
             className={`btn ghost ${file.favorite ? "fav-on" : ""}`}
             onClick={() => onToggleFavorite(file)}
-            title="즐겨찾기"
+            title={t("favoriteTip")}
           >
             {file.favorite ? "★" : "☆"}
           </button>
           {canForget(file) && (
             <ForgetButton file={file} className="btn ghost danger" onForget={onForget}>
-              🗑 제거
+              🗑 {t("remove")}
             </ForgetButton>
           )}
           {!remote && (
-            <button className="btn" onClick={tryOpenInBrowser} title="브라우저로 열기">
-              브라우저로 ↗
+            <button className="btn" onClick={tryOpenInBrowser} title={t("openInBrowserTip")}>
+              {t("openInBrowser")}
             </button>
           )}
         </div>
@@ -197,7 +198,7 @@ export default function Viewer({
             ref={inputRef}
             type="text"
             className="find-input"
-            placeholder="문서 내 검색…"
+            placeholder={t("findPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -212,7 +213,7 @@ export default function Viewer({
           </span>
           <button
             className="find-nav"
-            title="이전 (Shift+Enter)"
+            title={t("findPrevTip")}
             disabled={result.total === 0}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => post({ type: "find-step", delta: -1 })}
@@ -221,14 +222,14 @@ export default function Viewer({
           </button>
           <button
             className="find-nav"
-            title="다음 (Enter)"
+            title={t("findNextTip")}
             disabled={result.total === 0}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => post({ type: "find-step", delta: 1 })}
           >
             ↓
           </button>
-          <button className="find-close" title="닫기 (Esc)" onClick={closeFind}>
+          <button className="find-close" title={t("findCloseTip")} onClick={closeFind}>
             ×
           </button>
         </div>
@@ -240,45 +241,42 @@ export default function Viewer({
             <div className="vm-ico">{needsAuth ? "🔒" : "⚠"}</div>
             <h2>
               {needsAuth
-                ? "인증이 필요합니다"
+                ? t("viewerAuthTitle")
                 : notFound
-                  ? "파일을 찾을 수 없습니다"
-                  : "파일을 불러오지 못했습니다"}
+                  ? t("viewerNotFoundTitle")
+                  : t("viewerErrorTitle")}
             </h2>
             {needsAuth ? (
               <p>
-                <strong>{needsAuth}</strong> 서버에 접속하려면 비밀번호가 필요합니다. 비밀번호는 앱
-                실행 중에만 기억되며 저장되지 않습니다.
+                <strong>{needsAuth}</strong>
+                {t("viewerAuthBody")}
               </p>
             ) : notFound ? (
-              <p>
-                이 위치에서 파일을 불러오지 못했어요. 이동·이름변경·삭제되었을 수 있습니다.
-                원본을 다시 찾았다면 <strong>파일 열기</strong>로 다시 등록하세요.
-              </p>
+              <p>{t("viewerNotFoundBody")}</p>
             ) : (
               // A render/transient failure is NOT proof the file is gone, so no
               // destructive remove action here — just non-destructive fallbacks.
-              <p>파일은 존재하지만 내용을 표시하지 못했어요. 다시 열거나 브라우저로 열어 보세요.</p>
+              <p>{t("viewerErrorBody")}</p>
             )}
             <code className="vm-path">{file.path}</code>
             <div className="vm-actions">
               {needsAuth ? (
                 <button className="btn primary" onClick={() => onAuthNeeded(needsAuth)}>
-                  비밀번호 입력
+                  {t("enterPassword")}
                 </button>
               ) : (
                 <button className="btn" onClick={doc.retry}>
-                  다시 시도
+                  {t("retry")}
                 </button>
               )}
               {!remote && !needsAuth && (
                 <button className="btn" onClick={tryOpenInBrowser}>
-                  브라우저로 열기 시도
+                  {t("tryInBrowser")}
                 </button>
               )}
               {notFound && (
                 <ForgetButton file={file} className="btn primary danger" onForget={onForget}>
-                  라이브러리에서 제거
+                  {t("removeFromLibrary")}
                 </ForgetButton>
               )}
             </div>

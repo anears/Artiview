@@ -1,4 +1,6 @@
 import { useState } from "react";
+// Aliased: `t` is taken by the tag variable in the map callbacks below.
+import { t as i18nT } from "../i18n";
 
 interface Props {
   tags: string[];
@@ -21,7 +23,7 @@ export default function TagEditor({ tags, onChange }: Props) {
       {tags.map((t) => (
         <span key={t} className="chip">
           {t}
-          <button className="chip-x" onClick={() => remove(t)} title="제거">
+          <button className="chip-x" onClick={() => remove(t)} title={i18nT("removeTagTip")}>
             ×
           </button>
         </span>
@@ -29,7 +31,7 @@ export default function TagEditor({ tags, onChange }: Props) {
       <input
         className="tag-input"
         value={draft}
-        placeholder="+ 태그"
+        placeholder={i18nT("tagPlaceholder")}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") {

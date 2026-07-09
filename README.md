@@ -11,11 +11,7 @@ live-rendered thumbnails, full-text search, favorites, tags, and **SSH/SFTP
 remote folders** that work just like local ones. New files show up
 automatically — no manual refresh.
 
-<!-- TODO: add a demo GIF here before launch:
-![Artiview demo](docs/demo.gif)
-A good demo: an agent writes report.html into a watched folder → the card pops
-into the grid → click → instant viewer with ⌘F find.
--->
+![Artiview demo — browse the library, full-text search, in-document find, light/dark theme](docs/demo.gif)
 
 - **Nothing is ever modified or deleted.** Artiview only indexes; your files are
   untouched. "Remove from library" only deletes the index entry.

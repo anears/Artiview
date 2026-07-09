@@ -1,6 +1,7 @@
 mod db;
 mod html;
 mod remote;
+mod watch;
 
 use db::{FileEntry, Folder, ScanResult, TagCount};
 use rusqlite::Connection;
@@ -14,6 +15,9 @@ use walkdir::WalkDir;
 struct AppState {
     db: Mutex<Connection>,
     remotes: remote::Pool,
+    /// None when the platform watcher could not start — auto-refresh degrades
+    /// to manual rescans instead of failing the app.
+    watcher: Option<watch::FolderWatcher>,
 }
 
 type CmdResult<T> = Result<T, String>;
@@ -290,12 +294,21 @@ fn add_folder(state: State<AppState>, path: String) -> CmdResult<ScanResult> {
     let conn = state.db.lock().unwrap();
     let now = now_secs();
     let id = db::add_folder(&conn, &path, now).map_err(|e| e.to_string())?;
-    scan_folder(&conn, id, &path, now).map_err(|e| e.to_string())
+    let res = scan_folder(&conn, id, &path, now).map_err(|e| e.to_string())?;
+    if let Some(w) = &state.watcher {
+        w.watch(&path, id);
+    }
+    Ok(res)
 }
 
 #[tauri::command]
 fn remove_folder(state: State<AppState>, id: i64) -> CmdResult<()> {
     let conn = state.db.lock().unwrap();
+    if let (Some(w), Ok(Some(path))) = (&state.watcher, db::folder_path(&conn, id)) {
+        if !path.starts_with(remote::SFTP_PREFIX) {
+            w.unwatch(&path);
+        }
+    }
     db::remove_folder(&conn, id).map_err(|e| e.to_string())
 }
 
@@ -617,9 +630,26 @@ pub fn run() {
             for (hostkey, auth, key_path) in db::list_remotes(&conn)? {
                 remotes.set_auth(&hostkey, remote::AuthSpec { auth, key_path });
             }
+            // Watch registered local folders so new agent output shows up
+            // without a manual rescan. Remote folders are polled manually.
+            let watcher = match watch::start(app.handle().clone()) {
+                Ok(w) => Some(w),
+                Err(e) => {
+                    eprintln!("file watcher unavailable: {e}");
+                    None
+                }
+            };
+            if let Some(w) = &watcher {
+                for f in db::list_folders(&conn)? {
+                    if !f.path.starts_with(remote::SFTP_PREFIX) {
+                        w.watch(&f.path, f.id);
+                    }
+                }
+            }
             app.manage(AppState {
                 db: Mutex::new(conn),
                 remotes,
+                watcher,
             });
             Ok(())
         })

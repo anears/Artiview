@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as api from "./api";
 import FileGrid from "./components/FileGrid";
@@ -98,6 +99,18 @@ function App() {
   useEffect(() => {
     refreshFiles();
   }, [refreshFiles]);
+
+  // The backend watches registered local folders and rescans on changes —
+  // refetch whenever it reports that the library moved under us.
+  useEffect(() => {
+    const unlisten = listen("library-changed", () => {
+      refreshSidebar();
+      refreshFiles();
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [refreshSidebar, refreshFiles]);
 
   // ---- mutations (optimistic where possible) ----
   const patchFile = (id: number, patch: Partial<FileEntry>) => {

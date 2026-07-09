@@ -2,7 +2,8 @@
 name = "artiview"
 version = "0.2.0"
 description = "Artiview — a viewer & manager for agent-generated HTML & Markdown files"
-authors = ["you"]
+authors = ["Gitake Kwon <kwongitack@gmail.com>"]
+license = "MIT"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

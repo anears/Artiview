@@ -36,6 +36,20 @@ fn ext_lower(path: &Path) -> Option<String> {
     path.extension().and_then(|e| e.to_str()).map(|e| e.to_ascii_lowercase())
 }
 
+/// Stringify a local path for storage and display. Windows paths are
+/// normalized to forward slashes so everything built on top of the stored
+/// strings — the sidebar folder-tree math, the `dir/%` LIKE prefix filter,
+/// frontend basename/parent splits — behaves identically on every platform.
+/// std::fs and the webview asset protocol accept `/` on Windows.
+fn path_str(path: &Path) -> String {
+    let s = path.to_string_lossy();
+    if cfg!(windows) {
+        s.replace('\\', "/")
+    } else {
+        s.into_owned()
+    }
+}
+
 fn is_md(path: &Path) -> bool {
     matches!(ext_lower(path).as_deref(), Some("md") | Some("markdown") | Some("mdown") | Some("mkd"))
 }
@@ -52,7 +66,7 @@ fn index_single(
     folder_id: Option<i64>,
     now: i64,
 ) -> rusqlite::Result<(i64, bool)> {
-    let path_str = path.to_string_lossy().to_string();
+    let path_str = path_str(path);
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -146,7 +160,7 @@ fn scan_folder(conn: &Connection, folder_id: i64, root: &str, now: i64) -> rusql
             continue;
         }
         let path = entry.path();
-        let path_str = path.to_string_lossy().to_string();
+        let path_str = path_str(path);
         seen.insert(path_str.clone());
         res.scanned += 1;
 
@@ -288,6 +302,7 @@ fn list_folders(state: State<AppState>) -> CmdResult<Vec<Folder>> {
 
 #[tauri::command]
 fn add_folder(state: State<AppState>, path: String) -> CmdResult<ScanResult> {
+    let path = path_str(Path::new(&path));
     if !Path::new(&path).is_dir() {
         return Err("The selected path is not a folder".into());
     }
@@ -530,6 +545,7 @@ fn get_file(state: State<AppState>, id: i64) -> CmdResult<Option<FileEntry>> {
 /// not already known, mark it as recently opened, and return the entry.
 #[tauri::command]
 fn open_path(state: State<AppState>, path: String) -> CmdResult<FileEntry> {
+    let path = path_str(Path::new(&path));
     let p = Path::new(&path);
     if !p.is_file() {
         return Err("File not found".into());

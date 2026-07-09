@@ -251,7 +251,8 @@ impl Pool {
             .user
             .map(str::to_string)
             .or_else(|| params.as_ref().and_then(|p| p.user.clone()))
-            .or_else(|| std::env::var("USER").ok())
+            .or_else(|| std::env::var("USER").ok()) // unix
+            .or_else(|| std::env::var("USERNAME").ok()) // windows
             .ok_or_else(|| RemoteError::Other("Could not determine the username to connect with".into()))?;
 
         let addr = (host.as_str(), port)
@@ -287,7 +288,9 @@ impl Pool {
                 .as_ref()
                 .and_then(|p| p.identity_file.clone())
                 .unwrap_or_default();
-            if let Some(home) = std::env::var_os("HOME") {
+            let home = std::env::var_os("HOME") // unix
+                .or_else(|| std::env::var_os("USERPROFILE")); // windows
+            if let Some(home) = home {
                 let ssh_dir = PathBuf::from(home).join(".ssh");
                 for name in ["id_ed25519", "id_ecdsa", "id_rsa"] {
                     keys.push(ssh_dir.join(name));

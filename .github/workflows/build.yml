@@ -3,6 +3,10 @@
 # with the bundles attached (publish it manually after a smoke test).
 name: Build
 
+# The tag path creates a draft release, which needs a writable token.
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   pull_request:

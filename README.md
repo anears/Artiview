@@ -123,7 +123,8 @@ Remote scans are capped for safety: depth 16, 20k entries, 50MB per file.
 
 ## Known limitations
 
-- macOS Apple Silicon builds only (for now — the code is portable Tauri/Rust).
+- Windows and Linux builds are new and lightly tested — issue reports welcome.
+  macOS builds are Apple Silicon only.
 - SSH host keys are not yet checked against `known_hosts`; use on networks you
   trust.
 - SSH passwords must be re-entered after a restart (Keychain support planned).

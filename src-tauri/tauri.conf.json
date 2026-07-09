@@ -30,7 +30,10 @@
             "$DOCUMENT/**",
             "$DOWNLOAD/**",
             "$TEMP/**",
-            "/Volumes/**"
+            "/Volumes/**",
+            "/media/**",
+            "/mnt/**",
+            "/run/media/**"
           ],
           "requireLiteralLeadingDot": false
         }

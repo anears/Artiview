@@ -4,12 +4,14 @@ import * as api from "./api";
 import FileGrid from "./components/FileGrid";
 import PasswordModal from "./components/PasswordModal";
 import RemoteFolderModal from "./components/RemoteFolderModal";
+import SettingsModal from "./components/SettingsModal";
 import Sidebar from "./components/Sidebar";
 import TagEditor from "./components/TagEditor";
 import Toolbar from "./components/Toolbar";
 import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
 import { t } from "./i18n";
+import { loadLayout, loadSort, saveLayout, saveSort } from "./settings";
 import type { DirCount, FileEntry, Folder, Nav, SortKey, SortSpec, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
@@ -19,10 +21,13 @@ function App() {
   const [nav, setNav] = useState<Nav>({ kind: "all" });
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounced(query, 200);
-  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  // Layout and sort are viewing habits — restored from the previous run.
+  const [layout, setLayout] = useState<"grid" | "list">(loadLayout);
   // null = the view's own default order (recent → last opened, others →
   // modified). Set once the user picks a sort, and then applies everywhere.
-  const [sort, setSort] = useState<SortSpec | null>(null);
+  const [sort, setSort] = useState<SortSpec | null>(loadSort);
+  useEffect(() => saveLayout(layout), [layout]);
+  useEffect(() => saveSort(sort), [sort]);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -33,6 +38,8 @@ function App() {
   const [tagEditFile, setTagEditFile] = useState<FileEntry | null>(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Remote (SSH) state: the add-folder modal, a pending password request
   // (hostkey), and an epoch bumped on login so visible documents refetch.
@@ -248,12 +255,13 @@ function App() {
       if (e.key !== "Escape") return;
       if (authHost) setAuthHost(null);
       else if (remoteModalOpen) setRemoteModalOpen(false);
+      else if (settingsOpen) setSettingsOpen(false);
       else if (tagEditFile) setTagEditFile(null);
       else if (openFile) setOpenFile(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openFile, tagEditFile, remoteModalOpen, authHost]);
+  }, [openFile, tagEditFile, remoteModalOpen, settingsOpen, authHost]);
 
   // What the toolbar shows while sort is still the view default.
   const effectiveSort: SortSpec = useMemo(
@@ -298,6 +306,7 @@ function App() {
         onAddFolder={addFolder}
         onAddRemoteFolder={() => setRemoteModalOpen(true)}
         onRemoveFolder={removeFolder}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <main className="main">
@@ -382,6 +391,8 @@ function App() {
           </div>
         </div>
       )}
+
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
 
       {remoteModalOpen && (
         <RemoteFolderModal

@@ -13,6 +13,7 @@ interface Props {
   onAddFolder: () => void;
   onAddRemoteFolder: () => void;
   onRemoveFolder: (f: Folder) => void;
+  onOpenSettings: () => void;
 }
 
 export default function Sidebar({
@@ -24,6 +25,7 @@ export default function Sidebar({
   onAddFolder,
   onAddRemoteFolder,
   onRemoveFolder,
+  onOpenSettings,
 }: Props) {
   const tree = useMemo(() => buildFolderTree(folders, dirs), [folders, dirs]);
 
@@ -114,6 +116,12 @@ export default function Sidebar({
           ))}
         </div>
       )}
+
+      <div className="sidebar-foot">
+        <button className="nav-item" onClick={onOpenSettings} title={t("settings")}>
+          <span className="nav-ico">⚙</span> {t("settings")}
+        </button>
+      </div>
     </aside>
   );
 }

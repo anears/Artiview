@@ -121,6 +121,16 @@ const en = {
   passwordModalTitle: "🔒 SSH Password",
   ok: "OK",
 
+  // Settings
+  settings: "Settings",
+  settingsLanguage: "Language",
+  langAuto: "Auto (system language)",
+  settingsTheme: "Theme",
+  themeAuto: "Auto (system)",
+  themeLight: "Light",
+  themeDark: "Dark",
+  settingsReloadHint: "Changes apply when you press OK (the window reloads).",
+
   // Native dialog filters
   filterSshKeys: "SSH keys",
   filterAllFiles: "All files",
@@ -238,6 +248,15 @@ const ko: Dict = {
 
   passwordModalTitle: "🔒 SSH 비밀번호",
   ok: "확인",
+
+  settings: "설정",
+  settingsLanguage: "언어",
+  langAuto: "자동 (시스템 언어)",
+  settingsTheme: "테마",
+  themeAuto: "자동 (시스템)",
+  themeLight: "라이트",
+  themeDark: "다크",
+  settingsReloadHint: "확인을 누르면 적용됩니다 (창이 새로고침됩니다).",
 
   filterSshKeys: "SSH 키",
   filterAllFiles: "모든 파일",

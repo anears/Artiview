@@ -6,10 +6,14 @@ import { useCallback, useEffect, useState } from "react";
 import { fileSrc, isRemotePath, SFTP_PREFIX } from "./api";
 import { injectFindScript, wrapHtmlForViewer } from "./find";
 import { parentDir } from "./util";
-// CSS is injected into the iframe document (it has its own DOM), so we pull the
-// stylesheets in as strings via Vite's `?inline` import.
-import githubCss from "github-markdown-css/github-markdown-dark.css?inline";
-import hljsCss from "highlight.js/styles/github-dark.css?inline";
+// CSS is injected into the iframe document (it has its own DOM, where the
+// app's CSS variables don't reach), so we pull both palettes in as strings via
+// Vite's `?inline` import and pick one per render.
+import githubDarkCss from "github-markdown-css/github-markdown-dark.css?inline";
+import githubLightCss from "github-markdown-css/github-markdown-light.css?inline";
+import hljsDarkCss from "highlight.js/styles/github-dark.css?inline";
+import hljsLightCss from "highlight.js/styles/github.css?inline";
+import { resolvedTheme } from "./theme";
 
 const md = new MarkdownIt({
   html: true,
@@ -88,8 +92,8 @@ md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
   return defaultLinkOpen(tokens, idx, options, env, self);
 };
 
-const FRAME_CSS = `
-  html, body { margin: 0; background: #0d1117; }
+const frameCss = (bg: string) => `
+  html, body { margin: 0; background: ${bg}; }
   .markdown-body {
     box-sizing: border-box;
     max-width: 980px;
@@ -99,15 +103,17 @@ const FRAME_CSS = `
   .markdown-body img { background: transparent; }
 `;
 
-/** Render Markdown source into a full standalone HTML document for an iframe. */
+/** Render Markdown source into a full standalone HTML document for an iframe,
+ * styled for the theme in effect at render time. */
 export function renderMarkdownDoc(source: string, dir: string): string {
   const body = md.render(source, { dir });
+  const dark = resolvedTheme() === "dark";
   return `<!doctype html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>${githubCss}</style>
-<style>${hljsCss}</style>
-<style>${FRAME_CSS}</style>
+<style>${dark ? githubDarkCss : githubLightCss}</style>
+<style>${dark ? hljsDarkCss : hljsLightCss}</style>
+<style>${frameCss(dark ? "#0d1117" : "#ffffff")}</style>
 </head>
 <body><article class="markdown-body">${body}</article></body></html>`;
 }

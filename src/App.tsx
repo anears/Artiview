@@ -12,6 +12,7 @@ import Viewer from "./components/Viewer";
 import { useDebounced } from "./hooks";
 import { t } from "./i18n";
 import { loadLayout, loadSort, saveLayout, saveSort } from "./settings";
+import type { SortMap } from "./settings";
 import type { DirCount, FileEntry, Folder, Nav, SortKey, SortSpec, TagCount } from "./types";
 import { displayName } from "./types";
 import { basename } from "./util";
@@ -23,11 +24,14 @@ function App() {
   const debouncedQuery = useDebounced(query, 200);
   // Layout and sort are viewing habits — restored from the previous run.
   const [layout, setLayout] = useState<"grid" | "list">(loadLayout);
-  // null = the view's own default order (recent → last opened, others →
-  // modified). Set once the user picks a sort, and then applies everywhere.
-  const [sort, setSort] = useState<SortSpec | null>(loadSort);
+  // Sort is scoped per view: a view absent from the map uses its own default
+  // order (recent → last opened, others → modified). Sharing one global sort
+  // would let a name/size choice made elsewhere override the recent view's
+  // "most-recently-opened first" ordering.
+  const [sorts, setSorts] = useState<SortMap>(loadSort);
+  const sort = sorts[nav.kind] ?? null;
   useEffect(() => saveLayout(layout), [layout]);
-  useEffect(() => saveSort(sort), [sort]);
+  useEffect(() => saveSort(sorts), [sorts]);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -272,10 +276,12 @@ function App() {
 
   const changeSortKey = (key: SortKey) => {
     // Names read naturally ascending; dates and sizes newest/largest first.
-    setSort({ key, asc: key === "name" });
+    // Scoped to the active view so other views keep their own order.
+    setSorts((prev) => ({ ...prev, [nav.kind]: { key, asc: key === "name" } }));
   };
 
-  const toggleSortDir = () => setSort({ ...effectiveSort, asc: !effectiveSort.asc });
+  const toggleSortDir = () =>
+    setSorts((prev) => ({ ...prev, [nav.kind]: { ...effectiveSort, asc: !effectiveSort.asc } }));
 
   const title = useMemo(() => {
     switch (nav.kind) {

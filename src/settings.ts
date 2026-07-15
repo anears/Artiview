@@ -2,7 +2,7 @@
 // habits (language, layout, sort), so they live in the webview's storage
 // rather than the library database.
 
-import type { SortSpec } from "./types";
+import type { NavKind, SortSpec } from "./types";
 import { SORT_KEYS } from "./types";
 
 export type LangSetting = "auto" | "en" | "ko";
@@ -56,21 +56,41 @@ export function saveLayout(v: "grid" | "list") {
   write(LAYOUT_KEY, v);
 }
 
-/** Last explicit sort choice; null = each view's own default order. */
-export function loadSort(): SortSpec | null {
-  const raw = read(SORT_KEY);
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw);
-    if (SORT_KEYS.includes(v?.key) && typeof v?.asc === "boolean") {
-      return { key: v.key, asc: v.asc };
-    }
-  } catch {
-    /* corrupt value — fall back to the default */
-  }
-  return null;
+/** Per-view sort choices. A view absent from the map uses its own default
+ *  order (recent → last opened, others → modified), which is why the recent
+ *  view must not share a single global sort with the rest. */
+export type SortMap = Partial<Record<NavKind, SortSpec>>;
+
+function isSortSpec(v: unknown): v is SortSpec {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    SORT_KEYS.includes((v as SortSpec).key) &&
+    typeof (v as SortSpec).asc === "boolean"
+  );
 }
 
-export function saveSort(v: SortSpec | null) {
-  write(SORT_KEY, v === null ? null : JSON.stringify(v));
+export function loadSort(): SortMap {
+  const raw = read(SORT_KEY);
+  if (!raw) return {};
+  try {
+    const v = JSON.parse(raw);
+    // Ignore anything that isn't a plain object — including the old single-spec
+    // format ({key, asc}) from before per-view sorts, which just resets to
+    // defaults rather than crashing.
+    if (typeof v === "object" && v !== null && !Array.isArray(v)) {
+      const out: SortMap = {};
+      for (const [k, spec] of Object.entries(v)) {
+        if (isSortSpec(spec)) out[k as NavKind] = spec;
+      }
+      return out;
+    }
+  } catch {
+    /* corrupt value — fall back to the defaults */
+  }
+  return {};
+}
+
+export function saveSort(v: SortMap) {
+  write(SORT_KEY, Object.keys(v).length === 0 ? null : JSON.stringify(v));
 }

@@ -1,6 +1,6 @@
 [package]
 name = "artiview"
-version = "0.3.0"
+version = "0.3.1"
 description = "Artiview — a viewer & manager for agent-generated HTML & Markdown files"
 authors = ["Gitake Kwon <kwongitack@gmail.com>"]
 license = "MIT"

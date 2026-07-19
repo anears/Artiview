@@ -10,12 +10,23 @@
 
 /// Max number of characters of body text we keep for the search index.
 /// Generated reports can be huge; this keeps the DB and FTS reasonable.
-const MAX_BODY_CHARS: usize = 400_000;
+/// (Shared with the PDF extractor, which feeds the same index.)
+pub(crate) const MAX_BODY_CHARS: usize = 400_000;
 
+#[derive(Default)]
 pub struct Meta {
     pub title: Option<String>,
     pub heading: Option<String>,
     pub body: String,
+}
+
+/// Cap an already-collapsed body at MAX_BODY_CHARS.
+pub(crate) fn cap_body(body: String) -> String {
+    if body.chars().count() > MAX_BODY_CHARS {
+        body.chars().take(MAX_BODY_CHARS).collect()
+    } else {
+        body
+    }
 }
 
 pub fn extract(html: &str) -> Meta {
@@ -42,16 +53,20 @@ pub fn extract_md(src: &str) -> Meta {
         }
         None
     });
-    let body = collapse_ws(src);
-    let body = if body.chars().count() > MAX_BODY_CHARS {
-        body.chars().take(MAX_BODY_CHARS).collect()
-    } else {
-        body
-    };
     Meta {
         title,
         heading: None,
-        body,
+        body: cap_body(collapse_ws(src)),
+    }
+}
+
+/// Extract a searchable body from plain text. No title/heading — the filename
+/// is the only reliable display name a .txt gives us.
+pub fn extract_txt(src: &str) -> Meta {
+    Meta {
+        title: None,
+        heading: None,
+        body: cap_body(collapse_ws(src)),
     }
 }
 
@@ -128,12 +143,7 @@ fn strip(html: &str) -> String {
         }
     }
     let decoded = decode_entities(&out);
-    let collapsed = collapse_ws(&decoded);
-    if collapsed.chars().count() > MAX_BODY_CHARS {
-        collapsed.chars().take(MAX_BODY_CHARS).collect()
-    } else {
-        collapsed
-    }
+    cap_body(collapse_ws(&decoded))
 }
 
 fn skip_block(lower: &str, start: usize, end_tag: &str) -> usize {
@@ -186,7 +196,7 @@ fn decode_entities(s: &str) -> String {
         .replace("&hellip;", "…")
 }
 
-fn collapse_ws(s: &str) -> String {
+pub(crate) fn collapse_ws(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut prev_ws = false;
     for c in s.chars() {

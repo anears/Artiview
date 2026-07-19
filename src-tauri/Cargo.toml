@@ -32,4 +32,5 @@ notify = "8"
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 ssh2-config = "0.5"
 percent-encoding = "2.3"
+lopdf = "0.44.0"
 

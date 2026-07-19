@@ -1,5 +1,6 @@
 mod db;
 mod html;
+mod pdf;
 mod remote;
 mod watch;
 
@@ -54,9 +55,28 @@ fn is_md(path: &Path) -> bool {
     matches!(ext_lower(path).as_deref(), Some("md") | Some("markdown") | Some("mdown") | Some("mkd"))
 }
 
+fn is_pdf(path: &Path) -> bool {
+    matches!(ext_lower(path).as_deref(), Some("pdf"))
+}
+
+fn is_txt(path: &Path) -> bool {
+    matches!(ext_lower(path).as_deref(), Some("txt"))
+}
+
+fn is_img(path: &Path) -> bool {
+    matches!(
+        ext_lower(path).as_deref(),
+        Some("png") | Some("jpg") | Some("jpeg") | Some("gif") | Some("webp") | Some("svg")
+    )
+}
+
 /// File types the viewer can index and render.
 fn is_supported(path: &Path) -> bool {
-    matches!(ext_lower(path).as_deref(), Some("html") | Some("htm")) || is_md(path)
+    matches!(ext_lower(path).as_deref(), Some("html") | Some("htm"))
+        || is_md(path)
+        || is_pdf(path)
+        || is_txt(path)
+        || is_img(path)
 }
 
 /// Read a single file from disk, extract its metadata and upsert it into the DB.
@@ -85,7 +105,14 @@ fn index_single(
         .map(epoch)
         .unwrap_or(modified);
 
-    let raw = std::fs::read(path).unwrap_or_default();
+    // HTML/Markdown reports are small enough to always read whole. Images have
+    // nothing to extract, and PDFs past the extraction cap are indexed by
+    // metadata only — neither is worth pulling into memory.
+    let raw = if is_img(path) || (is_pdf(path) && size > pdf::MAX_EXTRACT_BYTES) {
+        Vec::new()
+    } else {
+        std::fs::read(path).unwrap_or_default()
+    };
     index_content(conn, &path_str, &name, &raw, size, modified, created, folder_id, now)
 }
 
@@ -103,11 +130,18 @@ fn index_content(
     folder_id: Option<i64>,
     now: i64,
 ) -> rusqlite::Result<(i64, bool)> {
-    let text = String::from_utf8_lossy(raw);
-    let m = if is_md(Path::new(path_str)) {
-        html::extract_md(&text)
+    let p = Path::new(path_str);
+    let m = if is_img(p) {
+        html::Meta::default() // images: filename-only indexing
+    } else if is_pdf(p) {
+        // Binary — never run it through the lossy-UTF-8 text extractors.
+        pdf::extract(raw)
+    } else if is_md(p) {
+        html::extract_md(&String::from_utf8_lossy(raw))
+    } else if is_txt(p) {
+        html::extract_txt(&String::from_utf8_lossy(raw))
     } else {
-        html::extract(&text)
+        html::extract(&String::from_utf8_lossy(raw))
     };
 
     db::upsert_file(
@@ -256,10 +290,16 @@ fn scan_remote_folder(
             continue;
         }
 
-        let raw = match pool.with_sftp(&hostkey, |sftp| remote::read_file(sftp, &entry.path)) {
-            Ok(b) => b,
-            Err(remote::RemoteError::NotFound) => continue, // vanished mid-scan
-            Err(e) => return Err(e),
+        // Images have nothing to extract — index them without pulling the
+        // bytes over the wire.
+        let raw = if is_img(Path::new(&entry.path)) {
+            Vec::new()
+        } else {
+            match pool.with_sftp(&hostkey, |sftp| remote::read_file(sftp, &entry.path)) {
+                Ok(b) => b,
+                Err(remote::RemoteError::NotFound) => continue, // vanished mid-scan
+                Err(e) => return Err(e),
+            }
         };
         let name = entry.path.rsplit('/').next().unwrap_or_default().to_string();
         match index_content(

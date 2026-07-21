@@ -76,7 +76,13 @@ export function displayName(f: FileEntry): string {
   return (f.title && f.title.trim()) || (f.heading && f.heading.trim()) || f.name;
 }
 
+export type FileKind = "html" | "md" | "pdf" | "img" | "txt";
+
 /** Renderer kind derived from the file extension. */
-export function fileKind(f: FileEntry): "html" | "md" {
-  return /\.(md|markdown|mdown|mkd)$/i.test(f.path) ? "md" : "html";
+export function fileKind(f: FileEntry): FileKind {
+  if (/\.(md|markdown|mdown|mkd)$/i.test(f.path)) return "md";
+  if (/\.pdf$/i.test(f.path)) return "pdf";
+  if (/\.(png|jpe?g|gif|webp|svg)$/i.test(f.path)) return "img";
+  if (/\.txt$/i.test(f.path)) return "txt";
+  return "html";
 }

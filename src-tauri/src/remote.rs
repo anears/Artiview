@@ -442,7 +442,15 @@ pub fn serve(pool: &Pool, uri_path: &str, origin: Option<&str>) -> tauri::http::
             origin,
         ),
         Ok(bytes) => {
-            let mime = tauri::utils::mime_type::MimeType::parse(&bytes, &path);
+            // .pdf is served by extension, not by sniffing: the viewer renders
+            // PDFs in an unsandboxed frame, and the sniffer's fallback for
+            // unrecognized bytes is text/html — a mislabeled .pdf must render
+            // as a broken PDF there, never execute as a page.
+            let mime = if path.to_ascii_lowercase().ends_with(".pdf") {
+                "application/pdf".to_string()
+            } else {
+                tauri::utils::mime_type::MimeType::parse(&bytes, &path)
+            };
             respond(200, Some(&mime), bytes, origin)
         }
         Err(RemoteError::NotFound) => respond(404, None, Vec::new(), origin),

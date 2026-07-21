@@ -21,6 +21,12 @@
   --hover-soft: rgba(255, 255, 255, 0.08);
   --badge-md-bg: #2d4a36;
   --badge-md-fg: #b7f0c8;
+  --badge-pdf-bg: #4a2d31;
+  --badge-pdf-fg: #f0b7bf;
+  --badge-img-bg: #3d2d4a;
+  --badge-img-fg: #dfc7f2;
+  --badge-txt-bg: #46412d;
+  --badge-txt-fg: #eee3b3;
   --toast-bg: #3a1c1f;
   --toast-fg: #ffd9d9;
   --stripe-missing-a: #2a2030;
@@ -50,6 +56,12 @@
   --hover-soft: rgba(20, 30, 50, 0.08);
   --badge-md-bg: #d9f2e0;
   --badge-md-fg: #1c6b3a;
+  --badge-pdf-bg: #f2d9dd;
+  --badge-pdf-fg: #9c2434;
+  --badge-img-bg: #ead9f2;
+  --badge-img-fg: #6d2b9c;
+  --badge-txt-bg: #f0ead4;
+  --badge-txt-fg: #6f5d17;
   --toast-bg: #fdecec;
   --toast-fg: #a32f2f;
   --stripe-missing-a: #f1e5e8;
@@ -522,6 +534,14 @@ button {
   background: #fff;
 }
 
+.thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
 .thumb-ph {
   position: absolute;
   inset: 0;
@@ -807,6 +827,21 @@ button {
   color: var(--badge-md-fg);
 }
 
+.kind-badge.pdf {
+  background: var(--badge-pdf-bg);
+  color: var(--badge-pdf-fg);
+}
+
+.kind-badge.img {
+  background: var(--badge-img-bg);
+  color: var(--badge-img-fg);
+}
+
+.kind-badge.txt {
+  background: var(--badge-txt-bg);
+  color: var(--badge-txt-fg);
+}
+
 .vt-path {
   font-size: 11.5px;
   color: var(--text-faint);
@@ -826,6 +861,19 @@ button {
   border: 0;
   background: #fff;
   width: 100%;
+}
+
+.viewer-image {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  padding: 24px;
+}
+
+.viewer-image img {
+  /* Centers while smaller than the viewport, scrolls once it isn't. */
+  margin: auto;
+  max-width: 100%;
 }
 
 /* ---------- In-document find bar ---------- */

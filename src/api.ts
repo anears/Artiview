@@ -102,7 +102,14 @@ export async function pickHtmlFile(): Promise<string | null> {
   const res = await openDialog({
     multiple: false,
     filters: [
-      { name: t("filterDocuments"), extensions: ["html", "htm", "md", "markdown", "mdown", "mkd"] },
+      {
+        name: t("filterDocuments"),
+        // Keep in sync with is_supported() in src-tauri/src/lib.rs.
+        extensions: [
+          "html", "htm", "md", "markdown", "mdown", "mkd", "pdf", "txt",
+          "png", "jpg", "jpeg", "gif", "webp", "svg",
+        ],
+      },
     ],
   });
   return typeof res === "string" ? res : null;

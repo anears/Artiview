@@ -70,6 +70,11 @@ export default function FileCard({ file, authEpoch, onOpen, onToggleFavorite, on
           <script> through markdown-it). The sandbox OMITS `allow-same-origin`
           so the preview runs in an isolated origin with no access to the parent
           app or the Tauri IPC. Do not add `allow-same-origin`.
+
+          PDFs are the one exception: the webview's native PDF viewer refuses
+          to run in a sandboxed frame, so they get no sandbox at all. Safe only
+          because useDocSource's probe verified the `%PDF-` magic — the frame
+          only ever shows real PDF bytes, never a page that could execute.
         */}
         {needsAuth ? (
           <div className="thumb-missing thumb-auth">
@@ -84,11 +89,14 @@ export default function FileCard({ file, authEpoch, onOpen, onToggleFavorite, on
               {t("removeFromLibrary")}
             </ForgetButton>
           </div>
+        ) : ready && kind === "img" && doc.src ? (
+          // <img> never executes scripts (not even in an SVG) — no sandbox needed.
+          <img className="thumb-img" src={doc.src} alt="" loading="lazy" draggable={false} />
         ) : ready && (doc.src || doc.srcDoc) ? (
           <iframe
             className="thumb-frame"
             {...frameProps}
-            sandbox="allow-scripts"
+            sandbox={kind === "pdf" ? undefined : "allow-scripts"}
             scrolling="no"
             tabIndex={-1}
             title={file.name}

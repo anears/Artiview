@@ -5,6 +5,7 @@ import hljs from "highlight.js/lib/common";
 import { useCallback, useEffect, useState } from "react";
 import { fileSrc, isRemotePath, SFTP_PREFIX } from "./api";
 import { injectFindScript, wrapHtmlForViewer } from "./find";
+import type { FileKind } from "./types";
 import { parentDir } from "./util";
 // CSS is injected into the iframe document (it has its own DOM, where the
 // app's CSS variables don't reach), so we pull both palettes in as strings via
@@ -118,6 +119,34 @@ export function renderMarkdownDoc(source: string, dir: string): string {
 <body><article class="markdown-body">${body}</article></body></html>`;
 }
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Render plain text into a full standalone HTML document for an iframe,
+ * styled for the theme in effect at render time. */
+export function renderTextDoc(source: string): string {
+  const dark = resolvedTheme() === "dark";
+  const [bg, fg] = dark ? ["#0d1117", "#e6edf3"] : ["#ffffff", "#1f2328"];
+  return `<!doctype html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; background: ${bg}; }
+  pre {
+    box-sizing: border-box;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 48px 64px;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: ${fg};
+  }
+</style>
+</head>
+<body><pre>${escapeHtml(source)}</pre></body></html>`;
+}
+
 export type DocSource = {
   src?: string;
   srcDoc?: string;
@@ -134,6 +163,26 @@ export type DocSource = {
   retry: () => void;
 };
 
+/** First `n` bytes of a response body as a binary string, cancelling the rest. */
+async function readHead(r: Response, n: number): Promise<string> {
+  const reader = r.body?.getReader();
+  if (!reader) return "";
+  let head = new Uint8Array(0);
+  try {
+    while (head.length < n) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const merged = new Uint8Array(head.length + value.length);
+      merged.set(head);
+      merged.set(value, head.length);
+      head = merged;
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  return String.fromCharCode(...head.slice(0, n));
+}
+
 /**
  * Resolve what to feed an <iframe> for a file:
  *  - Markdown → fetched + rendered HTML as srcDoc (only when `enabled`)
@@ -145,19 +194,28 @@ export type DocSource = {
  *    untrusted document cannot reach the parent or the Tauri IPC; the find
  *    script communicates with the parent only over postMessage. A `<base>` set
  *    to the file's own asset URL keeps relative resources resolving as before.
+ *  - Plain text → fetched + escaped into a `<pre>` document as srcDoc, exactly
+ *    the Markdown flow (so find works in the viewer).
+ *  - PDF → the asset URL directly, always: the webview's native PDF renderer
+ *    does the work, so there is no markup to transform or inject into. The
+ *    probe additionally verifies the `%PDF-` magic — the PDF frame renders
+ *    unsandboxed (native PDF viewers don't run inside sandboxed frames), so a
+ *    mislabeled .pdf that would come back as text/html must never reach it.
+ *  - Images → the asset URL directly; callers render it via <img>, which
+ *    never executes scripts (not even inside an SVG), so no iframe is needed.
  */
 export function useDocSource(
   path: string,
-  kind: "html" | "md",
+  kind: FileKind,
   enabled: boolean,
   findable = false,
   /** Change to force a refetch, e.g. after a rescan updates the file entry. */
   refreshKey: unknown = 0,
 ): DocSource {
   const [srcDoc, setSrcDoc] = useState<string | undefined>();
-  // HTML thumbnails render straight from the asset URL; everything else needs a
-  // fetch + transform pass before it can be shown.
-  const fetched = kind === "md" || findable;
+  // HTML thumbnails, PDFs and images render straight from the asset URL;
+  // everything else needs a fetch + transform pass before it can be shown.
+  const fetched = kind === "md" || kind === "txt" || (kind === "html" && findable);
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "notfound" | "auth" | "error">(
     enabled && fetched ? "loading" : "idle",
   );
@@ -188,12 +246,21 @@ export function useDocSource(
       // The iframe loads the asset URL natively, where a missing file fails
       // silently — probe for existence so the card can show its broken state.
       fetch(fileSrc(path))
-        .then((r) => {
+        .then(async (r) => {
           if (r.status === 401) return authWith(r);
+          if (!r.ok) {
+            r.body?.cancel().catch(() => {});
+            return failWith(r);
+          }
+          if (kind === "pdf") {
+            // Gate the unsandboxed PDF frame on the file really being a PDF
+            // (see the docs above) — anything else shows the error card.
+            const head = await readHead(r, 5).catch(() => "");
+            if (!cancelled) setStatus(head === "%PDF-" ? "ok" : "error");
+            return;
+          }
           r.body?.cancel().catch(() => {});
-          if (r.ok) {
-            if (!cancelled) setStatus("ok");
-          } else failWith(r);
+          if (!cancelled) setStatus("ok");
         })
         .catch(() => failWith());
     } else {
@@ -211,8 +278,10 @@ export function useDocSource(
           let doc =
             kind === "md"
               ? renderMarkdownDoc(text, parentDir(path))
-              : wrapHtmlForViewer(text, fileSrc(path));
-          if (kind === "md" && findable) doc = injectFindScript(doc);
+              : kind === "txt"
+                ? renderTextDoc(text)
+                : wrapHtmlForViewer(text, fileSrc(path));
+          if (kind !== "html" && findable) doc = injectFindScript(doc);
           setSrcDoc(doc);
           setStatus("ok");
         })

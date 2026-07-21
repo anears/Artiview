@@ -29,6 +29,9 @@ export default function Viewer({
   onError,
 }: Props) {
   const kind = fileKind(file);
+  // No find on PDFs (the native renderer's page isn't ours to script into)
+  // or images (no text to search).
+  const findSupported = kind !== "pdf" && kind !== "img";
   const remote = isRemotePath(file.path);
   // findable: inject search support. The refresh key retries the fetch when a
   // rescan / re-open / login updates the entry, so it recovers in place.
@@ -59,8 +62,8 @@ export default function Viewer({
   openRef.current = findOpen;
   const queryRef = useRef(query);
   queryRef.current = query;
-  const brokenRef = useRef(broken);
-  brokenRef.current = broken;
+  const canFindRef = useRef(!broken && findSupported);
+  canFindRef.current = !broken && findSupported;
 
   const post = useCallback((msg: Record<string, unknown>) => {
     frameRef.current?.contentWindow?.postMessage({ ...msg, __artiview: true }, "*");
@@ -79,9 +82,10 @@ export default function Viewer({
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if ((e.metaKey || e.ctrlKey) && k === "f") {
-        // No find on a broken file: the bar wouldn't render, and the invisible
-        // open state would swallow the next Escape meant to close the viewer.
-        if (brokenRef.current) return;
+        // No find on a broken file or a PDF: the bar wouldn't render, and the
+        // invisible open state would swallow the next Escape meant to close
+        // the viewer.
+        if (!canFindRef.current) return;
         e.preventDefault();
         e.stopPropagation();
         openFind();
@@ -120,10 +124,11 @@ export default function Viewer({
     return () => window.removeEventListener("message", onMsg);
   }, [openFind, closeFind, post]);
 
-  // If the document breaks while find is open, drop the now-invisible state.
+  // If the document breaks (or the entry switches to a PDF) while find is
+  // open, drop the now-invisible state.
   useEffect(() => {
-    if (broken) closeFind();
-  }, [broken, closeFind]);
+    if (broken || !findSupported) closeFind();
+  }, [broken, findSupported, closeFind]);
 
   // Focus the field when the bar opens.
   useEffect(() => {
@@ -160,14 +165,16 @@ export default function Viewer({
               {t}
             </span>
           ))}
-          <button
-            className="btn ghost"
-            onClick={openFind}
-            disabled={broken}
-            title={t("findTip")}
-          >
-            ⌕ {t("find")}
-          </button>
+          {findSupported && (
+            <button
+              className="btn ghost"
+              onClick={openFind}
+              disabled={broken}
+              title={t("findTip")}
+            >
+              ⌕ {t("find")}
+            </button>
+          )}
           <button className="btn ghost" onClick={() => onEditTags(file)} title={t("editTagsTip")}>
             # {t("tags")}
           </button>
@@ -282,6 +289,24 @@ export default function Viewer({
             </div>
           </div>
         </div>
+      ) : kind === "img" ? (
+        /*
+          Images render through <img>, which never executes scripts — not even
+          inside an SVG — so no iframe/sandbox is needed here.
+        */
+        <div className="viewer-image">
+          <img src={doc.src} alt={file.name} />
+        </div>
+      ) : kind === "pdf" ? (
+        /*
+          PDFs render via the webview's native PDF viewer, which refuses to run
+          inside a sandboxed frame — so this frame has NO sandbox. That is safe
+          only because nothing but a real PDF can ever load here: the probe in
+          useDocSource verified the `%PDF-` magic bytes, and the remote protocol
+          serves .pdf with a forced application/pdf content type. PDF bytes are
+          rendered by the viewer, never executed as a page.
+        */
+        <iframe className="viewer-frame" src={doc.src} title={file.name} />
       ) : (
         /*
           The viewer renders agent-generated (untrusted) HTML. The sandbox keeps

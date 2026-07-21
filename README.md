@@ -48,8 +48,9 @@ can be changed anytime — see [Settings](#settings).
 
 1. **Register a folder.** Click **+** next to *Folders* in the sidebar and
    pick the directory where your agent output lands (e.g.
-   `~/agent-reports`). Every `.html`, `.htm` and `.md` file under it —
-   subfolders included — is scanned and indexed.
+   `~/agent-reports`). Every `.html`, `.htm`, `.md`, `.pdf`, `.txt` and
+   image (`.png` `.jpg` `.gif` `.webp` `.svg`) file under it — subfolders
+   included — is scanned and indexed.
 2. **Watch the grid fill up.** Each card is the *actual document*, rendered
    live at thumbnail size — not a stale screenshot.
 3. **Leave it running.** Registered local folders are watched: when an agent
@@ -102,6 +103,10 @@ Click a file to open the viewer:
 Markdown renders GitHub-style with syntax-highlighted code, and relative
 images/links inside documents resolve against the file's own folder — also
 for files on remote servers.
+
+PDFs render with the webview's built-in PDF viewer, and images display at
+full size. Library search covers PDF and plain-text content too;
+in-document find (`⌘/Ctrl+F`) applies to HTML, Markdown and text files.
 
 ## Organize with favorites and tags
 
